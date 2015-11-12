@@ -6,20 +6,24 @@
 #include <stdarg.h>
 #include <gmp.h>
 #include "error.h"
+#include "dict.h"
+#include "types.h"
 #include "val.h"
 
 #define VIO_MAX_ERR_LEN 255
 #define VIO_STACK_SIZE 2048
 
-typedef struct _vctx {
+struct _vctx {
     /* first node in the linked list of objects that we scan to gc */
-    struct _vval *ohead;
+    vio_val *ohead;
     /* number of objects we've allocated so we know when to gc */
     uint32_t ocnt;
     
-    struct _vval *stack[VIO_STACK_SIZE];
+    vio_val *stack[VIO_STACK_SIZE];
     uint32_t sp;
-} vio_ctx;
+
+    vio_dict dict;
+};
 
 vio_err_t vio_open(vio_ctx *ctx);
 void vio_close(vio_ctx *ctx);
@@ -27,11 +31,11 @@ void vio_close(vio_ctx *ctx);
 void vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...);
 
 vio_err_t vio_pop_str(vio_ctx *ctx, uint32_t *len, char **out);
-vio_err_t vio_pop_i32(vio_ctx *ctx, int32_t *out);
-vio_err_t vio_pop_f32(vio_ctx *ctx, float *out);
+vio_err_t vio_pop_int(vio_ctx *ctx, vio_int *out);
+vio_err_t vio_pop_float(vio_ctx *ctx, vio_float *out);
 vio_err_t vio_pop_num(vio_ctx *ctx, mpf_t *out);
-vio_err_t vio_pop_vecf32(vio_ctx *ctx, uint32_t *len, float **out);
-vio_err_t vio_pop_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, float **out);
+vio_err_t vio_pop_vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out);
+vio_err_t vio_pop_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out);
 
 /* These functions push the internal tag/vec/mat values onto the stack
    and so do not take an out parameter for those (but do take one for the
@@ -41,11 +45,16 @@ vio_err_t vio_pop_vec(vio_ctx *ctx, uint32_t *len);
 vio_err_t vio_pop_mat(vio_ctx *ctx, uint32_t *rows, uint32_t *cols);
 
 vio_err_t vio_push_str(vio_ctx *ctx, uint32_t len, char *val);
-vio_err_t vio_push_i32(vio_ctx *ctx, int32_t val);
-vio_err_t vio_push_f32(vio_ctx *ctx, float val);
+vio_err_t vio_push_int(vio_ctx *ctx, vio_int val);
+vio_err_t vio_push_float(vio_ctx *ctx, vio_float val);
 vio_err_t vio_push_num(vio_ctx *ctx, const mpf_t val);
-vio_err_t vio_push_vecf32(vio_ctx *ctx, uint32_t len, float *val);
-vio_err_t vio_push_matf32(vio_ctx *ctx, uint32_t rows, uint32_t cols, float *val);
+vio_err_t vio_push_vecf32(vio_ctx *ctx, uint32_t len, vio_float *val);
+vio_err_t vio_push_matf32(vio_ctx *ctx, uint32_t rows, uint32_t cols, vio_float *val);
+
+vio_err_t vio_push_str_cnt(vio_ctx *ctx, uint32_t cnt, uint32_t *lens, char **vals);
+vio_err_t vio_push_int_cnt(vio_ctx *ctx, uint32_t cnt, vio_int *vals);
+vio_err_t vio_push_float_cnt(vio_ctx *ctx, uint32_t cnt, vio_float *vals);
+vio_err_t vio_push_num_cnt(vio_ctx *ctx, uint32_t cnt, const mpf_t *vals);
 
 /* Similarly, these pop some number of elements from the stack. */
 vio_err_t vio_push_tag(vio_ctx *ctx, uint32_t nlen, char *name, uint32_t vlen);

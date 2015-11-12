@@ -6,6 +6,7 @@ vio_err_t vio_open(vio_ctx *ctx) {
     ctx->ohead = NULL;
     ctx->ocnt = 0;
     ctx->sp = 0;
+    vio_dict_open(&ctx->dict);
     return 0;
 }
 
@@ -20,6 +21,7 @@ void vio_close(vio_ctx *ctx) {
     }
 }
 
+/* TODO: Figure out exception handling */
 void vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {
     char emsg[VIO_MAX_ERR_LEN];
     va_list args;
@@ -28,13 +30,34 @@ void vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {
     va_end(args);
 }
 
+/* An expected type of -1 will do no type checking.
+   If both the expected type and actual type are numeric,
+   this function will attempt to convert if possible.
+   This conversion only occurs between the float, int,
+   and num types. */
 vio_err_t pop_expect(vio_ctx *ctx, vio_val **v, int expect) {
+    vio_err_t err = 0;
+    
     if (ctx->sp == 0)
-        return VE_STACK_EMPTY;
-    if (expect > 0 && ctx->stack[ctx->sp-1]->what != expect)
-        return VE_STRICT_TYPE_FAIL;
-    *v = ctx->stack[--ctx->sp];
-    return 0;
+        err = VE_STACK_EMPTY;
+    else {
+        vio_val *top = ctx->stack[ctx->sp-1];
+        if (vio_is_numeric_type(expect) && vio_is_numeric(top)) {
+            if (!(err = vio_coerce(ctx, top, v, expect))) {
+                if (*v != NULL)
+                    --ctx->sp;
+                else
+                    err = VE_NUMERIC_CONVERSION_FAIL;
+            }
+        }
+        else if (expect > 0 && top->what != expect)
+            err = VE_STRICT_TYPE_FAIL;
+        else {
+            *v = top;
+            --ctx->sp;
+        }
+    }
+    return err;
 }
 
 vio_err_t push(vio_ctx *ctx, vio_val *v) {
@@ -63,7 +86,7 @@ vio_err_t vio_pop_str(vio_ctx *ctx, uint32_t *len, char **out) {
     return err;
 }
 
-vio_err_t vio_pop_i32(vio_ctx *ctx, int32_t *out) {
+vio_err_t vio_pop_int(vio_ctx *ctx, vio_int *out) {
     POP(vv_int)
     *out = v->i32;
     return 0;
@@ -73,7 +96,7 @@ vio_err_t vio_pop_i32(vio_ctx *ctx, int32_t *out) {
     return err;
 }
 
-vio_err_t vio_pop_f32(vio_ctx *ctx, float *out) {
+vio_err_t vio_pop_float(vio_ctx *ctx, vio_float *out) {
     POP(vv_float)
     *out = v->f32;
     return 0;
@@ -92,7 +115,7 @@ vio_err_t vio_pop_num(vio_ctx *ctx, mpf_t *out) {
     return err;
 }
 
-vio_err_t vio_pop_vecf32(vio_ctx *ctx, uint32_t *len, float **out) {
+vio_err_t vio_pop_vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out) {
     *out = NULL;
     POP(vv_vecf)
     *len = v->vlen;
@@ -105,7 +128,7 @@ vio_err_t vio_pop_vecf32(vio_ctx *ctx, uint32_t *len, float **out) {
     return err;
 }
 
-vio_err_t vio_pop_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, float **out) {
+vio_err_t vio_pop_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out) {
     *out = NULL;
     POP(vv_matf);
     *rows = v->rows;
@@ -216,14 +239,14 @@ vio_err_t vio_push_str(vio_ctx *ctx, uint32_t len, char *val) {
     HANDLE_ERRORS
 }
 
-vio_err_t vio_push_i32(vio_ctx *ctx, int32_t val) {
+vio_err_t vio_push_int(vio_ctx *ctx, vio_int val) {
     PUSH(vv_int)
     v->i32 = val;
     return 0;
     HANDLE_ERRORS
 }
 
-vio_err_t vio_push_f32(vio_ctx *ctx, float val) {
+vio_err_t vio_push_float(vio_ctx *ctx, vio_float val) {
     PUSH(vv_float)
     v->f32 = val;
     return 0;
@@ -238,15 +261,15 @@ vio_err_t vio_push_num(vio_ctx *ctx, const mpf_t val) {
     HANDLE_ERRORS
 }
 
-vio_err_t vio_push_vecf32(vio_ctx *ctx, uint32_t len, float *val) {
+vio_err_t vio_push_vecf32(vio_ctx *ctx, uint32_t len, vio_float *val) {
     PUSH(vv_vecf)
     v->vlen = len;
-    v->vf32 = (float *)malloc(len * sizeof(float));
+    v->vf32 = (vio_float *)malloc(len * sizeof(vio_float));
     if (v->vf32 == NULL) {
         err = VE_ALLOC_FAIL;
         goto error;
     }
-    memcpy(v->vf32, val, len * sizeof(float));
+    memcpy(v->vf32, val, len * sizeof(vio_float));
     return 0;
 
     /* we'll never have a state where vf32 has been allocated
@@ -255,20 +278,44 @@ vio_err_t vio_push_vecf32(vio_ctx *ctx, uint32_t len, float *val) {
     HANDLE_ERRORS
 }
 
-vio_err_t vio_push_matf32(vio_ctx *ctx, uint32_t rows, uint32_t cols, float *val) {
+vio_err_t vio_push_matf32(vio_ctx *ctx, uint32_t rows, uint32_t cols, vio_float *val) {
     uint32_t len = rows * cols;
     PUSH(vv_matf)
     v->rows = rows;
     v->cols = cols;
-    v->vf32 = (float *)malloc(len * sizeof(float));
+    v->vf32 = (vio_float *)malloc(len * sizeof(vio_float));
     if (v->vf32 == NULL) {
         err = VE_ALLOC_FAIL;
         goto error;
     }
-    memcpy(v->vf32, val, len * sizeof(float));
+    memcpy(v->vf32, val, len * sizeof(vio_float));
     return 0;
 
     HANDLE_ERRORS
+}
+
+#define PUSH_CNT(push) \
+    vio_err_t err; \
+    for (uint32_t i = 0; i < cnt; ++i) { \
+        if ((err = push)) \
+            return err; \
+    } \
+    return 0;
+
+vio_err_t vio_push_str_cnt(vio_ctx *ctx, uint32_t cnt, uint32_t *lens, char **vals) {
+    PUSH_CNT(vio_push_str(ctx, lens[i], vals[i]))
+}
+
+vio_err_t vio_push_int_cnt(vio_ctx *ctx, uint32_t cnt, vio_int *vals) {
+    PUSH_CNT(vio_push_int(ctx, vals[i]))
+}
+
+vio_err_t vio_push_float_cnt(vio_ctx *ctx, uint32_t cnt, vio_float *vals) {
+    PUSH_CNT(vio_push_float(ctx, vals[i]))
+}
+
+vio_err_t vio_push_num_cnt(vio_ctx *ctx, uint32_t cnt, const mpf_t *vals) {
+    PUSH_CNT(vio_push_num(ctx, vals[i]))
 }
 
 vio_err_t pop_into_vec(vio_ctx *ctx, uint32_t len, uint32_t *idx) {
