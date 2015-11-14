@@ -5,7 +5,7 @@
 #include "math.h"
 
 #define ENSURE_ATLEAST(n) \
-    if (ctx->sp < n+1) { \
+    if (ctx->sp < n) { \
         err = VE_STACK_EMPTY; \
         goto error; \
     }
