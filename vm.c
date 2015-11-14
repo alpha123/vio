@@ -30,6 +30,9 @@ int vm_push(vio_ctx *ctx, vio_val *v) {
     if (v->what != t) \
         return VE_STRICT_TYPE_FAIL;
 
+#define CHECK(expr) \
+    do{if ((err = (expr))) goto exit;}while(0)
+
 #define SELF prog[pc-1]
 
 #define IMM1 vio_opcode_imm1(SELF)
@@ -90,16 +93,16 @@ op_ret:
     pc = *address_sp;
     NEXT;
 op_add:
-    vio_add(ctx);
+    CHECK(vio_add(ctx));
     NEXT_MAYBEGC;
 op_sub:
-    vio_sub(ctx);
+    CHECK(vio_sub(ctx));
     NEXT_MAYBEGC;
 op_mul:
-    vio_mul(ctx);
+    CHECK(vio_mul(ctx));
     NEXT_MAYBEGC;
 op_div:
-    vio_div(ctx);
+    CHECK(vio_div(ctx));
     NEXT_MAYBEGC;
 op_dup:
     if (ctx->sp == 0) EXIT(VE_STACK_EMPTY);

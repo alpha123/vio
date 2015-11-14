@@ -5,7 +5,7 @@
 #include "math.h"
 
 #define ENSURE_ATLEAST(n) \
-    if (ctx->sp < n) { \
+    if (ctx->sp < n+1) { \
         err = VE_STACK_EMPTY; \
         goto error; \
     }
@@ -26,7 +26,12 @@ uint32_t vmaxui(uint32_t a, uint32_t b) {
 #define OP_IMPL(name) \
     vio_err_t generic_##name(vio_ctx *ctx, vio_val *a, vio_val *b) { \
         vio_err_t err = 0; \
-        vio_val *va, *vb;
+        vio_val *va, *vb; \
+        if (a->what == vv_str || b->what == vv_str || a->what == vv_quot || b->what == vv_quot || \
+            a->what == vv_tagword || b->what == vv_tagword) { \
+            err = VE_WRONG_TYPE; \
+            goto error; \
+        }
 
 #define END_OP(_name) \
     CLEANUP \

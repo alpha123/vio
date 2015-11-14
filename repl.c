@@ -47,15 +47,14 @@ char *do_expr(vio_ctx *ctx, const char *expr) {
     uint32_t plen, clen;
     CHECK(vio_tokenize_str(&t, expr, strlen(expr)));
     CHECK(vio_emit(ctx, t, &plen, &prog, &clen, &consts));
-    vio_exec(ctx, prog, consts);
+    CHECK(vio_exec(ctx, prog, consts));
     return vio_uneval(ctx);
 
     error:
     vio_tok_free_all(t);
     free(prog);
     free(consts);
-    fprintf(stderr, "Error: %s", vio_err_msg(err));
-    exit(1);
+    printf("Error: %s\n", vio_err_msg(err));
     return NULL;
 }
 

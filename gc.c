@@ -22,7 +22,6 @@ void vio_sweep(vio_ctx *ctx) {
                 last->next = w;
             vio_val_free(v);
             --ctx->ocnt;
-            last = v;
             v = w;
         }
     }

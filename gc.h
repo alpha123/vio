@@ -5,7 +5,7 @@
 #include <gmp.h>
 #include "context.h"
 
-#define VIO_GC_THRESH 100
+#define VIO_GC_THRESH 200
 
 void vio_mark(vio_ctx *ctx);
 void vio_sweep(vio_ctx *ctx);

@@ -1,5 +1,6 @@
 DEBUG=yes
 ENABLE_SERVER=yes
+ENABLE_WEBREPL=yes
 
 USE_SYSTEM_LINENOISE=no
 USE_SYSTEM_LZ4=no
@@ -33,6 +34,14 @@ ifeq ($(ENABLE_SERVER),yes)
 	VIO_HEADERS+=server.h
 	LIBS+=-lmagic
 	CFLAGS+=-DVIO_SERVER
+endif
+
+FETCH_DEPS=
+ifeq ($(ENABLE_WEBREPL),yes)
+ifeq ($(wildcard webrepl/jq-console/.),)
+	FETCH_DEPS+=fetch-webrepl
+endif
+	CFLAGS+=-DVIO_WEBREPL
 endif
 
 ifeq ($(USE_SYSTEM_LINENOISE),no)
@@ -70,7 +79,7 @@ endif
 OBJS=$(SRCS:.c=.o)
 IVIO=vio
 
-all: $(SRCS) $(IVIO)
+all: fetchdeps $(SRCS) $(IVIO)
 
 $(IVIO): $(OBJS)
 	$(CC) $(LDFLAGS) $(OBJS) -o $@ $(LIBS)
@@ -78,12 +87,27 @@ $(IVIO): $(OBJS)
 .c.o:
 	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
-.PHONY: doc
+fetchdeps: $(FETCH_DEPS)
 
+JQCONSOLE_UPSTREAM=https://github.com/replit/jq-console.git
+.PHONY: fetch-webrepl
+fetch-webrepl:
+	if [ -d "webrepl/jq-console" ]; then \
+		cd webrepl/jq-console && \
+		git pull $(JQCONSOLE_UPSTREAM) && \
+		cd ..; \
+	else \
+		git clone $(JQCONSOLE_UPSTREAM) webrepl/jq-console; \
+	fi
+
+.PHONY: doc
 doc:
 	cldoc generate $(INCLUDE_DIRS) -- --output doc --language c $(VIO_HEADERS)
 
 .PHONY: clean
-
 clean:
 	rm $(OBJS) $(IVIO)
+
+.PHONY: clean-deps
+clean-deps:
+	rm -rf webrepl/jq-console
