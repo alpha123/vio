@@ -1,6 +1,18 @@
 #include "opcodes.h"
 
 VIO_CONST
+const char *vio_instr_mneumonic(vio_instruction_t instr) {
+#define MNEUMONIC(i) case vop_##i: return #i;
+
+    switch (instr) {
+    LIST_VM_INSTRUCTIONS(MNEUMONIC, MNEUMONIC)
+    default: return "unknown";
+    }
+
+#undef MNEUMONIC
+}
+
+VIO_CONST
 vio_opcode vio_opcode_pack(vio_instruction_t instr, uint32_t imm1,
                                      uint8_t imm2, uint8_t imm3, uint8_t imm4) {
     return

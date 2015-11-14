@@ -3,26 +3,19 @@
 #include <string.h>
 #include "tok.h"
 
-/* maximum size of words, rules, and string literals */
-#define MAX_LITERAL_SIZE 255
+const char *vio_tok_type_name(vio_tok_t type) {
+#define NAME(t) case vt_##t: return #t;
+
+    switch (type) {
+    LIST_TOK_TYPES(NAME, NAME, NAME)
+    default: return "unknown token";
+    }
+
+#undef NAME
+}
 
 typedef enum { read, quot, esc, digit, dot, angle, btick, msesc, wordc, mod, fail, eof } ret_code;
-typedef enum { bad_state, next, str, stresc, num, tagword, rule, mtstr, mtsesc, word, advb, conj, err, done } state_code;
-
-typedef struct _tokenizer {
-    uint32_t i;
-    uint32_t line;
-    uint32_t pos;
-    const char *s;
-    uint32_t len;
-    vio_tok *t;
-    vio_tok *fst;
-    state_code cs;
-    vio_err_t err;
-
-    char sbuf[MAX_LITERAL_SIZE];
-    uint32_t slen;
-} vio_tokenizer;
+typedef enum _vstate_code { bad_state, next, str, stresc, num, tagword, rule, mtstr, mtsesc, word, advb, conj, err, done } state_code;
 
 typedef ret_code (* state_fn)(vio_tokenizer *);
 
@@ -75,17 +68,32 @@ state_code transitions[][10] = {
     [conj]   =	{next,	str, 	0,	num,	0,	0,	mtstr,	0,	conj,	conj}
 };
 
+void vio_tokenizer_init(vio_tokenizer *st) {
+    st->i = 0;
+    st->line = 0;
+    st->pos = 0;
+    st->t = NULL;
+    st->fst = NULL;
+    st->cs = next;
+    st->slen = 0;
+    st->err = 0;
+}
 
 void vio_tok_free(vio_tok *t) {
-    if (t->s != NULL)
-        free((void *)t->s);
+    /*if (t->s != NULL) {
+        free(t->s);
+        t->s = NULL;
+    }*/
+    t->next = NULL;
     free(t);
 }
 
 void vio_tok_free_all(vio_tok *t) {
+    vio_tok *next;
     while (t) {
+        next = t->next;
         vio_tok_free(t);
-        t = t->next;
+        t = next;
     }
 }
 
@@ -121,46 +129,43 @@ vio_err_t vio_tok_new(vio_tok_t type, vio_tokenizer *s, const char *str, uint32_
     return err;
 }
 
-
-vio_err_t vio_tokenize(vio_tok **t, const char *s, uint32_t len) {
+vio_err_t vio_tokenize_str(vio_tok **t, const char *s, uint32_t len) {
+    vio_err_t err = 0;
     vio_tokenizer st;
-    st.i = 0;
-    st.line = 0;
-    st.pos = 0;
+    vio_tokenizer_init(&st);
     st.s = s;
     st.len = len;
-    st.t = NULL;
-    st.fst = NULL;
-    st.cs = next;
-    st.slen = 0;
-    st.err = 0;
+    err = vio_tokenize(&st);
+    if (!err) *t = st.fst;
+    else vio_tok_free_all(st.fst);
+    return err;
+}
 
+vio_err_t vio_tokenize(vio_tokenizer *st) {
     state_fn f;
     ret_code rc;
 
     int isdone = 0;
     while (!isdone) {
-        f = states[st.cs];
-        rc = f(&st);
+        f = states[st->cs];
+        rc = f(st);
         switch (rc) {
         case eof: isdone = 1; break;
         case fail: goto error;
         default:
-            st.cs = transitions[st.cs][rc];
-            if (st.cs == 0) {
-                st.err = VE_TOKENIZER_INVALID_STATE;
+            st->cs = transitions[st->cs][rc];
+            if (st->cs == 0) {
+                st->err = VE_TOKENIZER_INVALID_STATE;
                 goto error;
             }
         }
-        isdone = st.i >= st.len;
+        isdone = isdone || st->i >= st->len;
     }
 
-    *t = st.fst;
     return 0;
 
     error:
-    vio_tok_free_all(st.fst);
-    return st.err;
+    return st->err;
 }
 
 #define READER(name) \
@@ -254,7 +259,7 @@ END_READER(tagword)
 
 READER(word)
     s->slen = 0;
-    while (!isspace(s->s[s->i]))
+    while (s->i < s->len && !isspace(s->s[s->i]))
         s->sbuf[s->slen++] = s->s[s->i++];
     vio_tok_new(vt_word, s, s->sbuf, s->slen);
     s->slen = 0;

@@ -22,7 +22,7 @@ struct _vctx {
     vio_val *stack[VIO_STACK_SIZE];
     uint32_t sp;
 
-    vio_dict dict;
+    vio_dict *dict;
 };
 
 vio_err_t vio_open(vio_ctx *ctx);
@@ -30,12 +30,24 @@ void vio_close(vio_ctx *ctx);
 
 void vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...);
 
+/* Return the type of the value on top of the stack.
+   Returns 0 if the stack is empty, because using vio_err_t
+   would be clumpsy. However that may be subject to change. */
+int vio_what(vio_ctx *ctx);
+
 vio_err_t vio_pop_str(vio_ctx *ctx, uint32_t *len, char **out);
 vio_err_t vio_pop_int(vio_ctx *ctx, vio_int *out);
 vio_err_t vio_pop_float(vio_ctx *ctx, vio_float *out);
 vio_err_t vio_pop_num(vio_ctx *ctx, mpf_t *out);
 vio_err_t vio_pop_vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out);
 vio_err_t vio_pop_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out);
+
+vio_err_t vio_top_str(vio_ctx *ctx, uint32_t *len, char **out);
+vio_err_t vio_top_int(vio_ctx *ctx, vio_int *out);
+vio_err_t vio_top_float(vio_ctx *ctx, vio_float *out);
+vio_err_t vio_top_num(vio_ctx *ctx, mpf_t *out);
+vio_err_t vio_top_vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out);
+vio_err_t vio_top_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out);
 
 /* These functions push the internal tag/vec/mat values onto the stack
    and so do not take an out parameter for those (but do take one for the

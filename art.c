@@ -448,13 +448,13 @@ static void add_child4(art_node4 *n, art_node **ref, unsigned char c, void *chil
 static void add_child(art_node *n, art_node **ref, unsigned char c, void *child) {
     switch (n->type) {
         case NODE4:
-            return add_child4((art_node4*)n, ref, c, child);
+            add_child4((art_node4*)n, ref, c, child); break;
         case NODE16:
-            return add_child16((art_node16*)n, ref, c, child);
+            add_child16((art_node16*)n, ref, c, child); break;
         case NODE48:
-            return add_child48((art_node48*)n, ref, c, child);
+            add_child48((art_node48*)n, ref, c, child); break;
         case NODE256:
-            return add_child256((art_node256*)n, ref, c, child);
+            add_child256((art_node256*)n, ref, c, child); break;
         default:
             abort();
     }
@@ -682,13 +682,13 @@ static void remove_child4(art_node4 *n, art_node **ref, art_node **l) {
 static void remove_child(art_node *n, art_node **ref, unsigned char c, art_node **l) {
     switch (n->type) {
         case NODE4:
-            return remove_child4((art_node4*)n, ref, l);
+            remove_child4((art_node4*)n, ref, l); break;
         case NODE16:
-            return remove_child16((art_node16*)n, ref, l);
+            remove_child16((art_node16*)n, ref, l); break;
         case NODE48:
-            return remove_child48((art_node48*)n, ref, c);
+            remove_child48((art_node48*)n, ref, c); break;
         case NODE256:
-            return remove_child256((art_node256*)n, ref, c);
+            remove_child256((art_node256*)n, ref, c); break;
         default:
             abort();
     }

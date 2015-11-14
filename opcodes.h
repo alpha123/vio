@@ -23,10 +23,10 @@ typedef uint64_t vio_opcode;
 #define VIO_OP_IMM4_SHIFT	0x38
 
 #define vio_opcode_instr(oc) ((oc) & VIO_OP_INSTR_MASK)
-#define vio_opcode_imm1(oc) (((oc) & VIO_OP_IMM1_MASK) >> VIO_OP_IMM1_SHIFT)
-#define vio_opcode_imm2(oc) (((oc) & VIO_OP_IMM2_MASK) >> VIO_OP_IMM2_SHIFT)
-#define vio_opcode_imm3(oc) (((oc) & VIO_OP_IMM3_MASK) >> VIO_OP_IMM3_SHIFT)
-#define vio_opcode_imm4(oc) ((oc) >> VIO_OP_IMM4_SHIFT)
+#define vio_opcode_imm1(oc) ((uint32_t)(((oc) & VIO_OP_IMM1_MASK) >> VIO_OP_IMM1_SHIFT))
+#define vio_opcode_imm2(oc) ((uint8_t)(((oc) & VIO_OP_IMM2_MASK) >> VIO_OP_IMM2_SHIFT))
+#define vio_opcode_imm3(oc) ((uint8_t)(((oc) & VIO_OP_IMM3_MASK) >> VIO_OP_IMM3_SHIFT))
+#define vio_opcode_imm4(oc) ((uint8_t)((oc) >> VIO_OP_IMM4_SHIFT))
 
 VIO_CONST
 vio_opcode vio_opcode_pack(
@@ -43,6 +43,9 @@ vio_opcode vio_opcode_pack(
     X(sub) \
     X(mul) \
     X(div) \
+    X(dup) \
+    X(rot) \
+    X(swap) \
     X_(nop)
 
 #define DEF_INSTR_CONSTS(instr) vop_##instr,
@@ -61,6 +64,9 @@ enum PACKED_ENUM vio_instructions {
 
 #undef DEF_INSTR_CONSTS
 #undef DEF_INSTR_CONSTS_
+
+VIO_CONST
+const char *vio_instr_mneumonic(vio_instruction_t instr);
 
 /*typedef uint64_t vio_compiled_program;
 

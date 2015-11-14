@@ -6,7 +6,9 @@ vio_err_t vio_open(vio_ctx *ctx) {
     ctx->ohead = NULL;
     ctx->ocnt = 0;
     ctx->sp = 0;
-    vio_dict_open(&ctx->dict);
+    if ((ctx->dict = (vio_dict *)malloc(sizeof(vio_dict))) == NULL)
+        return VE_ALLOC_FAIL;
+    vio_dict_open(ctx->dict);
     return 0;
 }
 
@@ -30,34 +32,40 @@ void vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {
     va_end(args);
 }
 
+int vio_what(vio_ctx *ctx) {
+    if (ctx->sp == 0)
+        return 0;
+    return ctx->stack[ctx->sp - 1]->what;
+}
+
 /* An expected type of -1 will do no type checking.
    If both the expected type and actual type are numeric,
    this function will attempt to convert if possible.
    This conversion only occurs between the float, int,
    and num types. */
-vio_err_t pop_expect(vio_ctx *ctx, vio_val **v, int expect) {
+vio_err_t top_expect(vio_ctx *ctx, vio_val **v, int expect) {
     vio_err_t err = 0;
     
     if (ctx->sp == 0)
         err = VE_STACK_EMPTY;
     else {
         vio_val *top = ctx->stack[ctx->sp-1];
-        if (vio_is_numeric_type(expect) && vio_is_numeric(top)) {
-            if (!(err = vio_coerce(ctx, top, v, expect))) {
-                if (*v != NULL)
-                    --ctx->sp;
-                else
-                    err = VE_NUMERIC_CONVERSION_FAIL;
-            }
-        }
+        if (vio_is_numeric_type(expect) && vio_is_numeric(top))
+            err = vio_coerce(ctx, top, v, expect);
         else if (expect > 0 && top->what != expect)
             err = VE_STRICT_TYPE_FAIL;
-        else {
+        else
             *v = top;
-            --ctx->sp;
-        }
     }
     return err;
+}
+
+vio_err_t pop_expect(vio_ctx *ctx, vio_val **v, int expect) {
+    vio_err_t err = 0;
+    if ((err = top_expect(ctx, v, expect)))
+        return err;
+    --ctx->sp;
+    return 0;
 }
 
 vio_err_t push(vio_ctx *ctx, vio_val *v) {
@@ -73,76 +81,87 @@ vio_err_t push(vio_ctx *ctx, vio_val *v) {
     if ((err = pop_expect(ctx, &v, type))) \
         goto error;
 
-vio_err_t vio_pop_str(vio_ctx *ctx, uint32_t *len, char **out) {
-    POP(vv_str)
+#define TOP(type) \
+   vio_val *v; \
+   vio_err_t err; \
+   if ((err = top_expect(ctx, &v, type))) \
+       goto error;
 
-    *len = v->len;
-    *out = v->s;
-    return 0;
+#define PT_STR(name, which) \
+    vio_err_t vio_ ## name ## _str(vio_ctx *ctx, uint32_t *len, char **out) { \
+        which(vv_str) \
+\
+        *len = v->len; \
+        *out = v->s; \
+        return 0; \
+\
+        error: \
+        *len = 0; \
+        *out = NULL; \
+        return err; \
+    }
 
-    error:
-    *len = 0;
-    *out = NULL;
-    return err;
-}
+#define PT_INT(name, which) \
+    vio_err_t vio_ ## name ## _int(vio_ctx *ctx, vio_int *out) { \
+        which(vv_int) \
+        *out = v->i32; \
+        return 0; \
+\
+        error: \
+        *out = 0; \
+        return err; \
+    }
 
-vio_err_t vio_pop_int(vio_ctx *ctx, vio_int *out) {
-    POP(vv_int)
-    *out = v->i32;
-    return 0;
+#define PT_FLOAT(name, which) \
+    vio_err_t vio_ ## name ## _float(vio_ctx *ctx, vio_float *out) { \
+        which(vv_float) \
+        *out = v->f32; \
+        return 0; \
+\
+        error: \
+        *out = 0.0f; \
+        return err; \
+    }
 
-    error:
-    *out = 0;
-    return err;
-}
+#define PT_NUM(name, which) \
+    vio_err_t vio_ ## name ## _num(vio_ctx *ctx, mpf_t *out) { \
+        which(vv_num) \
+        mpf_set(*out, v->n); \
+        return 0; \
+\
+        error: \
+        return err; \
+    }
 
-vio_err_t vio_pop_float(vio_ctx *ctx, vio_float *out) {
-    POP(vv_float)
-    *out = v->f32;
-    return 0;
+#define PT_VECF(name, which) \
+    vio_err_t vio_ ## name ## _vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out) { \
+        *out = NULL; \
+        which(vv_vecf) \
+        *len = v->vlen; \
+        *out = v->vf32; \
+        return 0; \
+\
+        error: \
+        *len = 0; \
+        *out = NULL; \
+        return err; \
+    }
 
-    error:
-    *out = 0.0f;
-    return err;
-}
-
-vio_err_t vio_pop_num(vio_ctx *ctx, mpf_t *out) {
-    POP(vv_num)
-    mpf_set(*out, v->n);
-    return 0;
-
-    error:
-    return err;
-}
-
-vio_err_t vio_pop_vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out) {
-    *out = NULL;
-    POP(vv_vecf)
-    *len = v->vlen;
-    *out = v->vf32;
-    return 0;
-
-    error:
-    *len = 0;
-    *out = NULL;
-    return err;
-}
-
-vio_err_t vio_pop_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out) {
-    *out = NULL;
-    POP(vv_matf);
-    *rows = v->rows;
-    *cols = v->cols;
-    *out = v->vf32;
-    return 0;
-
-    error:
-    *rows = 0;
-    *cols = 0;
-    *out = NULL;
-    return err;
-}
-
+#define PT_MATF(name, which) \
+    vio_err_t vio_ ## name ## _matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out) { \
+        *out = NULL; \
+        which(vv_matf); \
+        *rows = v->rows; \
+        *cols = v->cols; \
+        *out = v->vf32; \
+        return 0; \
+\
+        error: \
+        *rows = 0; \
+        *cols = 0; \
+        *out = NULL; \
+        return err; \
+    }
 
 vio_err_t vio_pop_tag(vio_ctx *ctx, uint32_t *nlen, char **name, uint32_t *vlen) {
     uint32_t i = 0;
@@ -210,6 +229,20 @@ vio_err_t vio_pop_mat(vio_ctx *ctx, uint32_t *rows, uint32_t *cols) {
     }
     return err;
 }
+
+#define TYPES(X) \
+    X(PT_STR) \
+    X(PT_INT) \
+    X(PT_FLOAT) \
+    X(PT_NUM) \
+    X(PT_VECF) \
+    X(PT_MATF)
+
+#define DEF_BOTH(typ) \
+   typ(pop, POP) \
+   typ(top, TOP) \
+
+TYPES(DEF_BOTH)
 
 #define PUSH(what) \
     vio_val *v; \

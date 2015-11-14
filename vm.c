@@ -40,7 +40,7 @@ int vm_push(vio_ctx *ctx, vio_val *v) {
 #define NEXT goto *dispatch[vio_opcode_instr(prog[pc++])]
 #define NEXT_MAYBEGC if (ctx->ocnt > VIO_GC_THRESH) vio_gc(ctx); NEXT
 
-#define EXIT(code) err = code; goto exit
+#define EXIT(code) do{ err = code; goto exit; } while(0)
 
 vio_err_t vio_exec(vio_ctx *ctx, vio_opcode *prog, vio_val **consts) {
     vio_err_t err = 0;
@@ -77,6 +77,12 @@ op_call:
         EXPECT(v, vv_quot)
         pc = v->jmp;
     }
+    else if (IMM2 == 3) { /* pop string from stack and look up address */
+        SAFE_POP(v)
+        EXPECT(v, vv_str)
+        if (!vio_dict_lookup(ctx->dict, v->s, v->len, &pc))
+            EXIT(VE_CALL_TO_UNDEFINED_WORD);
+    }
     NEXT;
 op_ret:
     /* assume the opcode stream is valid and we never have more rets than calls */
@@ -95,6 +101,23 @@ op_mul:
 op_div:
     vio_div(ctx);
     NEXT_MAYBEGC;
+op_dup:
+    if (ctx->sp == 0) EXIT(VE_STACK_EMPTY);
+    SAFE_PUSH(ctx->stack[ctx->sp-1])
+    NEXT;
+op_rot:
+    if (ctx->sp < 3) EXIT(VE_STACK_EMPTY);
+    v = ctx->stack[ctx->sp-3];
+    ctx->stack[ctx->sp-3] = ctx->stack[ctx->sp-1];
+    ctx->stack[ctx->sp-1] = ctx->stack[ctx->sp-2];
+    ctx->stack[ctx->sp-2] = v;
+    NEXT;
+op_swap:
+    if (ctx->sp < 2) EXIT(VE_STACK_EMPTY);
+    v = ctx->stack[ctx->sp-2];
+    ctx->stack[ctx->sp-2] = ctx->stack[ctx->sp-1];
+    ctx->stack[ctx->sp-1] = v;
+    NEXT;
 op_nop:
     NEXT;
 

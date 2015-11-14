@@ -1,4 +1,4 @@
-#include <tgmath.h>
+#include <math.h>
 #include <gmp.h>
 #include <blas/cblas.h>
 #include "attrib.h"
@@ -60,9 +60,9 @@ uint32_t vmaxui(uint32_t a, uint32_t b) {
 
 #define STANDARD_NUMERIC(op, fop) \
     GIVEN_NUMERIC \
-        case vv_int: CHECK(vio_push_int(ctx, a->i32 op b->i32)) break; \
-        case vv_float: CHECK((ctx, a->f32 op b->f32)) break; \
-        case vv_num: mpf_##fop(a->n, a->n, b->n); CHECK(vio_push_num(ctx, a->n)) break; \
+        case vv_int: CHECK(vio_push_int(ctx, b->i32 op a->i32)) break; \
+        case vv_float: CHECK(vio_push_float(ctx, b->f32 op a->f32)) break; \
+        case vv_num: mpf_##fop(a->n, b->n, a->n); CHECK(vio_push_num(ctx, a->n)) break; \
     DONE_NUMERIC
 
 #define GIVEN_VEC \

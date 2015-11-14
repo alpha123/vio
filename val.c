@@ -7,6 +7,18 @@ int vio_is_numeric_type(vio_val_t what) {
     return what == vv_int || what == vv_float || what == vv_num;
 }
 
+VIO_CONST
+const char *vio_val_type_name(vio_val_t what) {
+#define NAME(t) case vv_##t: return #t;
+
+    switch (what) {
+    LIST_VAL_TYPES(NAME, NAME, NAME)
+    default: return "unknown type";
+    }
+
+#undef NAME
+}
+
 vio_err_t vio_val_new(vio_ctx *ctx, vio_val **out, vio_val_t type) {
     vio_val *v = (vio_val *)malloc(sizeof(vio_val));
     if (v == NULL)
@@ -48,6 +60,7 @@ void vio_val_free(vio_val *v) {
     case vv_mat:
         free(v->vv);
         break;
+    default: break; /* nothing else needs freeing */
     }
     free(v);
 }
@@ -69,6 +82,7 @@ void vio_mark_val(vio_val *v) {
         for (i = 0; i < l; ++i)
             vio_mark_val(v->vv[i]);
         break;
+    default: break; /* nothing else references anything */
     }
 }
 
@@ -160,6 +174,7 @@ vio_err_t vio_coerce(vio_ctx *ctx, vio_val *from, vio_val **to, vio_val_t what) 
             if (TRY_INIT(to))
                 mpf_init_set_si((*to)->n, from->i32);
             break;
+        default: *to = NULL;
     } break;
     case vv_float: switch (what) {
         case vv_int:
@@ -170,6 +185,7 @@ vio_err_t vio_coerce(vio_ctx *ctx, vio_val *from, vio_val **to, vio_val_t what) 
             if (TRY_INIT(to))
                 mpf_init_set_d((*to)->n, from->f32);
             break;
+        default: *to = NULL;
     } break;
     case vv_num: switch (what) {
         case vv_int:
@@ -182,6 +198,7 @@ vio_err_t vio_coerce(vio_ctx *ctx, vio_val *from, vio_val **to, vio_val_t what) 
             if (mpf_fits_slong_p(from->n) && TRY_INIT(to))
                 (*to)->f32 = (vio_float)mpf_get_d(from->n);
             break;
+        default: *to = NULL;
     } break;
     }
     return err;
