@@ -5,7 +5,8 @@
 #include "uneval.h"
 
 char *vio_uneval_val(vio_val *v) {
-    char *out;
+    char *out, **vout;
+    uint32_t total;
     switch (v->what) {
     case vv_str:
         out = (char *)malloc(v->len + 3);
@@ -29,6 +30,24 @@ char *vio_uneval_val(vio_val *v) {
         out = (char *)malloc(gmp_snprintf(NULL, 0, "%Ff", v->n) + 1);
         if (out == NULL) goto die;
         gmp_sprintf(out, "%Ff", v->n);
+        break;
+    case vv_vec:
+        vout = (char **)malloc(v->vlen * sizeof(char *));
+        total = 4 + v->vlen; /* spaces between each value */
+        for (uint32_t i = 0; i < v->vlen; ++i) {
+            vout[i] = vio_uneval_val(v->vv[i]);
+            total += strlen(vout[i]);
+        }
+        out = (char *)malloc(total);
+        out[0] = '{';
+        out[1] = ' ';
+        out[2] = '\0';
+        for (uint32_t i = 0; i < v->vlen; ++i) {
+            strcat(out, vout[i]);
+            strcat(out, " ");
+        }
+        out[total-2] = '}';
+        out[total-1] = '\0';
         break;
     default:
        out = (char *)malloc(40); /* arbitrary but should fit */

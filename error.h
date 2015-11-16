@@ -30,8 +30,10 @@
 \
     X(VE_DICTIONARY_ALLOC_FAIL, "Fatal: unable to allocate dictionary.") \
 \
+    X(VE_COULDNT_CREATE_VECTOR, "Failed to create a vector.") \
+\
     X(VE_EXCEEDED_MAX_CALL_DEPTH, "Exceeded maximum call depth.") \
-    X(VE_CALL_TO_UNDEFINED_WORD, "Attempt to call undefined word.") \
+    X(VE_CALL_TO_UNDEFINED_WORD, "Attempted to call undefined word.") \
     X_(VE_BAD_OPCODE, "VM Error: Bad opcode.")
 
 #define _DEF_ENUM(e,_d) e = 1,

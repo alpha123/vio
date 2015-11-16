@@ -43,7 +43,8 @@ int vm_push(vio_ctx *ctx, vio_val *v) {
 #define NEXT goto *dispatch[vio_opcode_instr(prog[pc++])]
 #define NEXT_MAYBEGC if (ctx->ocnt > VIO_GC_THRESH) vio_gc(ctx); NEXT
 
-#define EXIT(code) do{ err = code; goto exit; } while(0)
+#define EXIT(code) do{ err = code; goto exit; }while(0)
+#define RAISE(code, ...) do{ vio_raise(ctx, code, __VA_ARGS__); EXIT(code); }while(0)
 
 vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
     vio_err_t err = 0;
@@ -59,8 +60,10 @@ vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
 #undef INIT_DISPATCH_TABLE_
 
     uint32_t ap_base[VIO_MAX_CALL_DEPTH], *address_sp,
-             pc = 0, idx;
+             pc = 0, idx, vcnt;
     vio_val *v;
+    vio_int vcnti;
+    vio_float *vf;
     address_sp = ap_base;
 
     NEXT;
@@ -86,7 +89,7 @@ op_call:
         SAFE_POP(v)
         EXPECT(v, vv_str)
         if (!vio_dict_lookup(ctx->dict, v->s, v->len, &pc))
-            EXIT(VE_CALL_TO_UNDEFINED_WORD);
+            RAISE(VE_CALL_TO_UNDEFINED_WORD, "Attempted to call '%.*s', but that word is not defined.", v->s, v->len);
     }
     NEXT;
 op_ret:
@@ -110,21 +113,44 @@ op_div:
     CHECK(vio_div(ctx));
     NEXT_MAYBEGC;
 op_dup:
-    if (ctx->sp == 0) EXIT(VE_STACK_EMPTY);
+    if (ctx->sp == 0) RAISE(VE_STACK_EMPTY, "'dup' has nothing to duplicate!");
     SAFE_PUSH(ctx->stack[ctx->sp-1])
     NEXT;
 op_rot:
-    if (ctx->sp < 3) EXIT(VE_STACK_EMPTY);
+    if (ctx->sp < 3)
+        RAISE(VE_STACK_EMPTY, "'rot' requires a stack size of at least 3, but only %d values exist", ctx->sp);
     v = ctx->stack[ctx->sp-3];
     ctx->stack[ctx->sp-3] = ctx->stack[ctx->sp-1];
     ctx->stack[ctx->sp-1] = ctx->stack[ctx->sp-2];
     ctx->stack[ctx->sp-2] = v;
     NEXT;
 op_swap:
-    if (ctx->sp < 2) EXIT(VE_STACK_EMPTY);
+    if (ctx->sp < 2)
+        RAISE(VE_STACK_EMPTY, "Can't use 'swap' on an empty stack or a stack with a single value.");
     v = ctx->stack[ctx->sp-2];
     ctx->stack[ctx->sp-2] = ctx->stack[ctx->sp-1];
     ctx->stack[ctx->sp-1] = v;
+    NEXT;
+op_vec:
+    if (ctx->sp == 0) EXIT(VE_STACK_EMPTY);
+    CHECK(vio_pop_int(ctx, &vcnti));
+    if (vcnti < 0) RAISE(VE_COULDNT_CREATE_VECTOR, "Negatively sized vectors don't make sense.");
+    vcnt = (uint32_t)vcnti;
+    if (ctx->sp < vcnt)
+        RAISE(VE_STACK_EMPTY, "Attempted to create a vector of %d elements, but the stack only has %d values.", vcnt, ctx->sp);
+    vio_push_vec(ctx, vcnt);
+    NEXT_MAYBEGC;
+op_vecf:
+    if (ctx->sp == 0) EXIT(VE_STACK_EMPTY);
+    CHECK(vio_pop_int(ctx, &vcnti));
+    if (vcnti < 0) RAISE(VE_COULDNT_CREATE_VECTOR, "Negatively sized vectors don't make sense.");
+    vcnt = (uint32_t)vcnti;
+    if (ctx->sp < vcnt)
+        RAISE(VE_STACK_EMPTY, "Attempted to create a float vector of %d elements, but the stack only has %d values.", vcnt, ctx->sp);
+    vf = (vio_float *)malloc(vcnt * sizeof(vio_float));
+    for (uint32_t i = 0; i < vcnt; ++i)
+        vio_pop_float(ctx, vf + i);
+    vio_push_vecf32(ctx, vcnt, vf);
     NEXT;
 op_nop:
     NEXT;
