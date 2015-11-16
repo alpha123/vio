@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include "attrib.h"
 #include "tok.h"
 
 const char *vio_tok_type_name(vio_tok_t type) {
@@ -257,9 +258,17 @@ READER(tagword)
     s->t->what = vt_tagword;
 END_READER(tagword)
 
+VIO_CONST
+int is_single_char_word(char c) {
+    return c == '{' || c == '}' ||
+           c == '[' || c == ']';
+}
+
 READER(word)
     s->slen = 0;
-    while (s->i < s->len && !isspace(s->s[s->i]))
+    if (is_single_char_word(s->s[s->i]))
+        s->sbuf[s->slen++] = s->s[s->i++];
+    else while (s->i < s->len && !isspace(s->s[s->i]))
         s->sbuf[s->slen++] = s->s[s->i++];
     vio_tok_new(vt_word, s, s->sbuf, s->slen);
     s->slen = 0;

@@ -45,8 +45,10 @@ int vm_push(vio_ctx *ctx, vio_val *v) {
 
 #define EXIT(code) do{ err = code; goto exit; } while(0)
 
-vio_err_t vio_exec(vio_ctx *ctx, vio_opcode *prog, vio_val **consts) {
+vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
     vio_err_t err = 0;
+    vio_opcode *prog = bc->prog;
+    vio_val **consts = bc->consts;
 
 #define INIT_DISPATCH_TABLE(instr) [vop_##instr] = &&op_##instr,
 #define INIT_DISPATCH_TABLE_(instr) [vop_##instr] = &&op_##instr
@@ -72,7 +74,7 @@ op_load:
 op_call:
     if (address_sp - ap_base >= VIO_MAX_CALL_DEPTH)
         EXIT(VE_EXCEEDED_MAX_CALL_DEPTH);
-    *address_sp++ = pc;
+    *address_sp++ = pc + 1;
     if (IMM2 == 1) /* address as operand--function call */
         pc = IMM1;
     else if (IMM2 == 2) { /* pop quotation from stack */
@@ -89,8 +91,11 @@ op_call:
     NEXT;
 op_ret:
     /* assume the opcode stream is valid and we never have more rets than calls */
-    address_sp--;
-    pc = *address_sp;
+    pc = *--address_sp;
+    NEXT;
+op_reljmp:
+    /* backward jump if imm2 is 1, forward jump if it is 0 */
+    pc += IMM1 * (-2 * IMM2 + 1);
     NEXT;
 op_add:
     CHECK(vio_add(ctx));

@@ -15,6 +15,10 @@
     X(VE_TOKENIZER_UNTERMINATED_MATCH_STRING, "Syntax error: unterminated match string literal.") \
     X(VE_TOKENIZER_UNEXPECTED_EOF, "Syntax error: unexpected end-of-file.") \
 \
+    X(VE_EXCEEDED_NESTED_VECTOR_LIMIT, "Syntax error: Too deeply nested vector.") \
+    X(VE_UNMATCHED_VEC_OPEN, "Syntax error: unmatched '{'") \
+    X(VE_UNMATCHED_VEC_CLOSE, "Syntax error: unmatched '}'") \
+\
     X(VE_IO_FAIL, "IO Error: unknown.") \
 \
     X(VE_STACK_EMPTY, "Attempt to pop empty stack.") \
@@ -43,5 +47,9 @@ typedef enum {
 #undef DEF_ENUM_
 
 const char *vio_err_msg(vio_err_t err);
+
+/* not really intended for public use */
+#define VIO__CHECK(expr) do{ if ((err = (expr))) goto error; }while(0)
+#define VIO__ERRIF(expr, errcode) VIO__CHECK((expr) ? errcode : 0)
 
 #endif

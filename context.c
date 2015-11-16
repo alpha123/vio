@@ -23,13 +23,14 @@ void vio_close(vio_ctx *ctx) {
     }
 }
 
-/* TODO: Figure out exception handling */
-void vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {
-    char emsg[VIO_MAX_ERR_LEN];
+vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {
     va_list args;
     va_start(args, msg);
-    vsnprintf(emsg, VIO_MAX_ERR_LEN, msg, args);
+    vsnprintf(ctx->err_msg, VIO_MAX_ERR_LEN, msg, args);
     va_end(args);
+
+    ctx->err = err;
+    return err;
 }
 
 int vio_what(vio_ctx *ctx) {

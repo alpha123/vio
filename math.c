@@ -6,13 +6,17 @@
 
 #define ENSURE_ATLEAST(n) \
     if (ctx->sp < n) { \
-        err = VE_STACK_EMPTY; \
+        err = vio_raise(ctx, VE_STACK_EMPTY, "Function requires at least " \
+                        #n " operands, stack only has %d items.", ctx->sp); \
         goto error; \
     }
 
 #define CLEANUP \
     return err; \
     error: \
+    if (ctx->err == 0) \
+    	strcpy(ctx->err_msg, "Unexpected math."); \
+    ctx->err = err; \
     return err;
 
 #define CHECK(expr) \
@@ -29,7 +33,9 @@ uint32_t vmaxui(uint32_t a, uint32_t b) {
         vio_val *va, *vb; \
         if (a->what == vv_str || b->what == vv_str || a->what == vv_quot || b->what == vv_quot || \
             a->what == vv_tagword || b->what == vv_tagword) { \
-            err = VE_WRONG_TYPE; \
+            err = vio_raise(ctx, VE_WRONG_TYPE, \
+                            "Function '" #name "' expects numeric types or vectors; received '%s' and '%s' operands.", \
+                            vio_val_type_name(a->what), vio_val_type_name(b->what));\
             goto error; \
         }
 

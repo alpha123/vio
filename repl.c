@@ -7,10 +7,11 @@
 #include "linenoise.h"
 #endif
 #include "flag.h"
+#include "bytecode.h"
 #include "context.h"
-#include "emit.h"
 #include "error.h"
 #include "opcodes.h"
+#include "rewrite.h"
 #include "serialize.h"
 #include "server.h"
 #include "tok.h"
@@ -41,20 +42,23 @@
 
 char *do_expr(vio_ctx *ctx, const char *expr) {
     vio_err_t err = 0;
-    vio_opcode *prog;
-    vio_val **consts;
+    vio_bytecode *bc;
     vio_tok *t;
-    uint32_t plen, clen;
+    char *s;
     CHECK(vio_tokenize_str(&t, expr, strlen(expr)));
-    CHECK(vio_emit(ctx, t, &plen, &prog, &clen, &consts));
-    CHECK(vio_exec(ctx, prog, consts));
-    return vio_uneval(ctx);
+    CHECK(vio_rewrite(&t));
+    CHECK(vio_emit(ctx, t, &bc));
+    CHECK(vio_exec(ctx, bc));
+    vio_tok_free_all(t);
+    s = vio_uneval(ctx);
+    vio_bytecode_free(bc);
+    return s;
 
     error:
     vio_tok_free_all(t);
-    free(prog);
-    free(consts);
+    vio_bytecode_free(bc);
     printf("Error: %s\n", vio_err_msg(err));
+    puts(ctx->err_msg);
     return NULL;
 }
 
@@ -76,8 +80,7 @@ int main(int argc, const char **argv) {
     vio_ctx ctx;
     vio_open(&ctx);
 
-    vio_opcode *prog;
-    vio_val **consts;
+    vio_bytecode *bc;
     vio_tok *t, *tt;
     char *s, *line;
     uint32_t plen, clen;
@@ -130,15 +133,15 @@ int main(int argc, const char **argv) {
         }
         st.len = plen;
         CHECK(vio_tokenize(&st));
-        CHECK(vio_emit(&ctx, st.fst, &plen, &prog, &clen, &consts));
+        CHECK(vio_emit(&ctx, st.fst, &bc));
 
         fwrite(&clen, sizeof(uint32_t), 1, out);
-        for (uint32_t i = 0; i < clen; ++i)
-            vio_dump_val(out, consts[i]);
+        for (uint32_t i = 0; i < bc->ic; ++i)
+            vio_dump_val(out, bc->consts[i]);
         fwrite(z, sizeof(uint32_t), 2, out);
         fwrite(&plen, sizeof(uint32_t), 1, out);
-        for (uint32_t i = 0; i < plen; ++i)
-            fwrite(prog + i, sizeof(vio_opcode), 1, out);
+        for (uint32_t i = 0; i < bc->ip; ++i)
+            fwrite(bc->prog + i, sizeof(vio_opcode), 1, out);
         return 0;
     }
     else if (bc_file) {
@@ -154,6 +157,7 @@ int main(int argc, const char **argv) {
 
         if (strncmp(line, "lex ", 4) == 0) {
             CHECK(vio_tokenize_str(&t, line + 4, strlen(line) - 4));
+            CHECK(vio_rewrite(&t));
             tt = t;
             printf("--- lexer output ---\n");
             while (tt) {
@@ -161,25 +165,29 @@ int main(int argc, const char **argv) {
                 tt = tt->next;
             }
             printf("--- end lexer output ---\n");
+            vio_tok_free_all(t);
         }
         else if (strncmp(line, "disasm ", 7) == 0) {
             CHECK(vio_tokenize_str(&t, line + 7, strlen(line) - 7));
-            CHECK(vio_emit(&ctx, t, &plen, &prog, &clen, &consts));
+            CHECK(vio_rewrite(&t));
+            CHECK(vio_emit(&ctx, t, &bc));
             printf("--- disassembly ---\n");
-            for (uint32_t i = 0; i < clen; ++i) {
-                s = vio_uneval_val(consts[i]);
-                printf("%d\t.const\t%s\t%s\n", i, vio_val_type_name(consts[i]->what), s);
+            for (uint32_t i = 0; i < bc->ic; ++i) {
+                s = vio_uneval_val(bc->consts[i]);
+                printf("%d\t.const\t%s\t%s\n", i, vio_val_type_name(bc->consts[i]->what), s);
                 free(s);
             }
             putchar('\n');
-            for (uint32_t i = 0; i < plen; ++i) {
+            for (uint32_t i = 0; i < bc->ip; ++i) {
                 printf("%d\t0x%020lx\t\t%s\t%d\t%d\t%d\t%d\n",
-                    i, prog[i],
-                    vio_instr_mneumonic(vio_opcode_instr(prog[i])),
-                    vio_opcode_imm1(prog[i]), vio_opcode_imm2(prog[i]),
-                    vio_opcode_imm3(prog[i]), vio_opcode_imm4(prog[i]));
+                    i, bc->prog[i],
+                    vio_instr_mneumonic(vio_opcode_instr(bc->prog[i])),
+                    vio_opcode_imm1(bc->prog[i]), vio_opcode_imm2(bc->prog[i]),
+                    vio_opcode_imm3(bc->prog[i]), vio_opcode_imm4(bc->prog[i]));
             }
             printf("--- end disassembly ---\n");
+            vio_tok_free_all(t);
+            vio_bytecode_free(bc);
         }
         else {
             s = do_expr(&ctx, line);
@@ -193,9 +201,6 @@ int main(int argc, const char **argv) {
 
         linenoiseHistoryAdd(line);
         free(line);
-        vio_tok_free_all(t);
-        free(prog);
-        free(consts);
         t = NULL;
     }
     if (out != stdout)

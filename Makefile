@@ -24,7 +24,7 @@ INCLUDE_DIRS=-I/usr/include -I/usr/local/include
 
 LIBS=-lm -lgmp -l$(BLAS_IMPL)
 
-VIO_SRCS=context.c dict.c emit.c error.c gc.c math.c opcodes.c repl.c serialize.c tok.c uneval.c val.c vm.c
+VIO_SRCS=bytecode.c context.c dict.c error.c gc.c math.c opcodes.c repl.c rewrite.c serialize.c tok.c uneval.c val.c vm.c
 SRCS=$(VIO_SRCS) flag.c
 VIO_HEADERS=$(VIO_SRCS:.c=.h)
 VIO_HEADERS:=$(filter-out repl.h,$(VIO_HEADERS))

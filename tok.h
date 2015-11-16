@@ -37,6 +37,7 @@ typedef struct _vtok {
     struct _vtok *next;
 } vio_tok;
 
+void vio_tok_free(vio_tok *t);
 void vio_tok_free_all(vio_tok *t);
 
 /* maximum size of words, rules, and string literals */

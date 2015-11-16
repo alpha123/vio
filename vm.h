@@ -4,9 +4,10 @@
 #include "context.h"
 #include "val.h"
 #include "opcodes.h"
+#include "bytecode.h"
 
 #define VIO_MAX_CALL_DEPTH 2000
 
-vio_err_t vio_exec(vio_ctx *ctx, vio_opcode *prog, vio_val **consts);
+vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc);
 
 #endif

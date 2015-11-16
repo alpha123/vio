@@ -23,16 +23,24 @@ struct _vctx {
     uint32_t sp;
 
     vio_dict *dict;
+
+    vio_err_t err;
+    char err_msg[VIO_MAX_ERR_LEN];
 };
 
 vio_err_t vio_open(vio_ctx *ctx);
 void vio_close(vio_ctx *ctx);
 
-void vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...);
+/* Does not actually interrupt exeuction of the program; rather
+   sets ctx->err and ctx->err_msg. It is up to the VM to suspend
+   operation in case of an error.
+   @returns its error argument */
+vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...);
 
 /* Return the type of the value on top of the stack.
    Returns 0 if the stack is empty, because using vio_err_t
-   would be clumpsy. However that may be subject to change. */
+   would be clumpsy. However that may be subject to change.
+   @returns either 0 or an int that can safely be cast to a vio_val_t */
 int vio_what(vio_ctx *ctx);
 
 vio_err_t vio_pop_str(vio_ctx *ctx, uint32_t *len, char **out);
