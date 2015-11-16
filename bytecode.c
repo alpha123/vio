@@ -218,7 +218,7 @@ vio_err_t vio_emit(vio_ctx *ctx, vio_tok *t, vio_bytecode **out) {
 
 void vio_bytecode_free(vio_bytecode *bc) {
     free(bc->prog);
-    for (uint32_t i = 0; i < bc->ic; ++i)
-        vio_val_free(bc->consts[i]);
+    /* don't free our constants! they're (possibly) referenced on the stack
+       and will be gced if they aren't */
     free(bc);
 }

@@ -64,3 +64,20 @@ char *vio_uneval(vio_ctx *ctx) {
     if (ctx->sp == 0) return NULL;
     return vio_uneval_val(ctx->stack[ctx->sp-1]);
 }
+
+void vio_print_stack(vio_ctx *ctx, FILE *f) {
+    uint32_t i = ctx->sp;
+    char *s;
+    while (i--) {
+        s = vio_uneval_val(ctx->stack[i]);
+        if (f == NULL) {
+            puts(s);
+            putchar('\n');
+        }
+        else {
+            fputs(s, f);
+            fputc('\n', f);
+        }
+        free(s);
+    }
+}

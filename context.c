@@ -410,8 +410,7 @@ vio_err_t vio_push_vec(vio_ctx *ctx, uint32_t len) {
     uint32_t i = 0;
     PUSH(vv_vec)
     v->vlen = len;
-    if ((err = pop_into_vec(ctx, len, &i)))
-        goto error;
+    VIO__CHECK(pop_into_vec(ctx, len, &i));
     return 0;
 
     HANDLE_VEC_ERRORS
@@ -422,8 +421,7 @@ vio_err_t vio_push_mat(vio_ctx *ctx, uint32_t rows, uint32_t cols) {
     PUSH(vv_mat)
     v->rows = rows;
     v->cols = cols;
-    if ((err = pop_into_vec(ctx, len, &i)))
-        goto error;
+    VIO__CHECK(pop_into_vec(ctx, len, &i));
     return 0;
 
     HANDLE_VEC_ERRORS

@@ -36,7 +36,9 @@
 #define COMPILER "unknown"
 #endif
 
-#define VERSION "This is Vio, version 0.0.0-0, built with " \
+#define VIO_VERSION "0.0.1-0"
+
+#define VERSION_INFO "This is Vio, version " VIO_VERSION " built with " \
                 COMPILER "." \
                 "\nCopyright (c) 2015 Peter Cannici <turkchess123@gmail.com>"
 
@@ -74,7 +76,7 @@ int main(int argc, const char **argv) {
     flag_str(&txt_file, "c", "file\tCompile a file to bytecode. If -- is specified for the file, read from STDIN.");
     flag_str(&bc_file, "r", "file\tRun a compiled bytecode file.");
     flag_str(&out_file, "o", "file\tSpecify a file for the output of -c. By default bytecodes are written to STDOUT.");
-    flag_parse(argc, argv, VERSION);
+    flag_parse(argc, argv, VERSION_INFO);
 
     vio_err_t err = 0;
     vio_ctx ctx;
@@ -147,7 +149,7 @@ int main(int argc, const char **argv) {
     else if (bc_file) {
     }
 
-    puts(VERSION);
+    puts(VERSION_INFO);
     puts("Use vio --help for usage information.");
     puts("Ctrl-C to quit.");
     putchar('\n');
@@ -189,6 +191,8 @@ int main(int argc, const char **argv) {
             vio_tok_free_all(t);
             vio_bytecode_free(bc);
         }
+        else if (strcmp(line, "ds") == 0 || strcmp(line, "dump-stack") == 0)
+            vio_print_stack(&ctx, stdout);
         else {
             s = do_expr(&ctx, line);
             if (s == NULL)

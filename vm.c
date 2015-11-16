@@ -89,7 +89,7 @@ op_call:
         SAFE_POP(v)
         EXPECT(v, vv_str)
         if (!vio_dict_lookup(ctx->dict, v->s, v->len, &pc))
-            RAISE(VE_CALL_TO_UNDEFINED_WORD, "Attempted to call '%.*s', but that word is not defined.", v->s, v->len);
+            RAISE(VE_CALL_TO_UNDEFINED_WORD, "Attempted to call '%.*s', but that word is not defined.", v->len, v->s);
     }
     NEXT;
 op_ret:

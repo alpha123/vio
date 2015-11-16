@@ -6,6 +6,7 @@
 #else
 #define EX_OSERR 71
 #endif
+#include <stdio.h>
 
 #include "context.h"
 #include "val.h"
@@ -30,5 +31,15 @@ char *vio_uneval_val(vio_val *v);
             returns a pointer to some freshly allocated character array.
             The caller is responsible for freeing this value. */
 char *vio_uneval(vio_ctx *ctx);
+
+/* Write a string representation of the stack to a file.
+
+   @ctx Write all of ctx->stack in the same representation as vio_uneval(); does not pop anything.
+
+   Strictly for debugger/repl use.
+
+   Note: dies if something bad happens. */
+
+void vio_print_stack(vio_ctx *ctx, FILE *f);
 
 #endif
