@@ -170,9 +170,18 @@ int main(int argc, const char **argv) {
             vio_tok_free_all(t);
         }
         else if (strncmp(line, "disasm ", 7) == 0) {
-            CHECK(vio_tokenize_str(&t, line + 7, strlen(line) - 7));
-            CHECK(vio_rewrite(&t));
-            CHECK(vio_emit(&ctx, t, &bc));
+            if (strchr(line + 7, ' ')) {
+                CHECK(vio_tokenize_str(&t, line + 7, strlen(line) - 7));
+                CHECK(vio_rewrite(&t));
+                CHECK(vio_emit(&ctx, t, &bc));
+            }
+            else {
+                uint32_t bci;
+                if (vio_dict_lookup(ctx.dict, line + 7, strlen(line) - 7, &bci))
+                    bc = ctx.defs[bci];
+                else
+                    puts("unknown word");
+            }
             printf("--- disassembly ---\n");
             for (uint32_t i = 0; i < bc->ic; ++i) {
                 s = vio_uneval_val(bc->consts[i]);

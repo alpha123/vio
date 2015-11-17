@@ -32,6 +32,7 @@
 \
     X(VE_COULDNT_CREATE_VECTOR, "Failed to create a vector.") \
 \
+    X(VE_TOO_MANY_WORDS, "Too many words defined.") \
     X(VE_EXCEEDED_MAX_CALL_DEPTH, "Exceeded maximum call depth.") \
     X(VE_CALL_TO_UNDEFINED_WORD, "Attempted to call undefined word.") \
     X_(VE_BAD_OPCODE, "VM Error: Bad opcode.")

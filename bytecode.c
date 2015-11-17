@@ -34,6 +34,20 @@ vio_err_t alloc_consts(vio_bytecode *bc) {
     ALLOC_ENSURE(vio_val *, bc->consts, bc->ic, bc->csz)
 }
 
+vio_err_t vio_bytecode_alloc(vio_bytecode **out) {
+    vio_bytecode *bc = (vio_bytecode *)malloc(sizeof(vio_bytecode));
+    if (bc == NULL) {
+        *out = NULL;
+        return VE_ALLOC_FAIL;
+    }
+    bc->psz = DEFAULT_OPCODE_BUFSIZE;
+    bc->csz = DEFAULT_CONST_BUFSIZE;
+    bc->ip = bc->ic = 0;
+    bc->prog = bc->consts = NULL;
+    *out = bc;
+    return 0;
+}
+
 #define EMIT_OPCODE(instr) (bc->prog[bc->ip++] = vio_opcode_pack((instr), imm1, imm2, imm3, imm4))
 #define EMIT_CONST(type) \
     VIO__CHECK(vio_val_new(ctx, &v, (type))); \
@@ -45,32 +59,20 @@ enum end_cond { end_eof, end_defend };
 
 vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final, enum end_cond stop_at);
 
-vio_err_t emit_definition(vio_ctx *ctx, const char *name, uint32_t nlen, vio_tok **def_start,
-                          vio_bytecode *bc) {
+vio_err_t emit_definition(vio_ctx *ctx, const char *name, uint32_t nlen, vio_tok **def_start) {
     vio_err_t err = 0;
-    vio_opcode jmp;
-    uint32_t imm1 = 0, prev, last;
-    uint8_t imm2 = 0, imm3 = 0, imm4 = 0;
+    vio_bytecode *fn;
 
-    prev = bc->ip;
-    vio_dict_store(ctx->dict, name, nlen, bc->ip + 1);
-    VIO__CHECK(emit(ctx, def_start, bc, vop_ret, end_defend));
-    imm1 = bc->ip - prev;
-    EMIT_OPCODE(vop_reljmp);
-
-    /* The relative jump should go at the beginning of the definition, but
-       we don't know how many to jump until we've compiled the rest.
-       Move every instruction by one and then put the jump at the beginning. */
-    last = bc->ip;
-    jmp = bc->prog[--bc->ip];
-    while (bc->ip-- > prev)
-        bc->prog[bc->ip+1] = bc->prog[bc->ip];
-    bc->prog[prev] = jmp;
-    bc->ip = last;
+    VIO__CHECK(vio_bytecode_alloc(&fn));
+    VIO__CHECK(emit(ctx, def_start, fn, vop_ret, end_defend));
+    vio_dict_store(ctx->dict, name, nlen, ctx->defp);
+    VIO__ERRIF(ctx->defp == VIO_MAX_FUNCTIONS, VE_TOO_MANY_WORDS);
+    ctx->defs[ctx->defp++] = fn;
 
     return 0;
 
     error:
+    if (fn) vio_bytecode_free(fn);
     return err;
 }
 
@@ -166,7 +168,7 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
                 uint32_t nlen = t->len - 1;
                 t = t->next; /* start with the first token of the definition,
                                 gets updated to point to the end */
-                emit_definition(ctx, name, nlen, &t, bc);
+                emit_definition(ctx, name, nlen, &t);
             }
             else {
                 uint32_t oip = bc->ip;
@@ -180,7 +182,7 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
                             v->s = (char *)malloc(v->len);
                             strncpy(v->s, t->s, v->len);
                         }
-                        imm2 = 3;
+                        imm2 = 2;
                     }
                     EMIT_OPCODE(vop_call);
                 }
@@ -205,15 +207,15 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
 }
 
 vio_err_t vio_emit(vio_ctx *ctx, vio_tok *t, vio_bytecode **out) {
-    vio_bytecode *bc = (vio_bytecode *)malloc(sizeof(vio_bytecode));
-    if (bc == NULL)
-        return VE_ALLOC_FAIL;
-    bc->psz = DEFAULT_OPCODE_BUFSIZE;
-    bc->csz = DEFAULT_CONST_BUFSIZE;
-    bc->ip = bc->ic = 0;
-    bc->prog = bc->consts = NULL;
-    *out = bc;
-    return emit(ctx, &t, bc, vop_halt, end_eof);
+    vio_err_t err = 0;
+    VIO__CHECK(vio_bytecode_alloc(out));
+    VIO__CHECK(emit(ctx, &t, *out, vop_halt, end_eof));
+
+    return 0;
+
+    error:
+    if (*out) vio_bytecode_free(*out);
+    return err;
 }
 
 void vio_bytecode_free(vio_bytecode *bc) {

@@ -3,13 +3,25 @@
 #include "context.h"
 
 vio_err_t vio_open(vio_ctx *ctx) {
+    vio_err_t err = 0;
     ctx->ohead = NULL;
     ctx->ocnt = 0;
     ctx->sp = 0;
-    if ((ctx->dict = (vio_dict *)malloc(sizeof(vio_dict))) == NULL)
-        return VE_ALLOC_FAIL;
+    ctx->defp = 0;
+    VIO__ERRIF((ctx->defs = (vio_bytecode **)malloc(
+        sizeof(vio_bytecode *) * VIO_MAX_FUNCTIONS)) == NULL, VE_ALLOC_FAIL);
+    VIO__ERRIF((ctx->dict = (vio_dict *)malloc(sizeof(vio_dict))) == NULL, VE_ALLOC_FAIL);
     vio_dict_open(ctx->dict);
     return 0;
+
+    error:
+    if (ctx->defs != NULL)
+        free(ctx->defs);
+    if (ctx->dict != NULL) {
+        vio_dict_close(ctx->dict);
+        free(ctx->dict);
+    }
+    return err;
 }
 
 void vio_close(vio_ctx *ctx) {
@@ -21,6 +33,8 @@ void vio_close(vio_ctx *ctx) {
         free(v);
         v = n;
     }
+    vio_dict_close(ctx->dict);
+    free(ctx->defs);
 }
 
 vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {

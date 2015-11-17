@@ -7,11 +7,13 @@
 #include <gmp.h>
 #include "error.h"
 #include "dict.h"
+#include "bytecode.h"
 #include "types.h"
 #include "val.h"
 
 #define VIO_MAX_ERR_LEN 255
 #define VIO_STACK_SIZE 2048
+#define VIO_MAX_FUNCTIONS (32*1024)
 
 struct _vctx {
     /* first node in the linked list of objects that we scan to gc */
@@ -22,7 +24,9 @@ struct _vctx {
     vio_val *stack[VIO_STACK_SIZE];
     uint32_t sp;
 
-    vio_dict *dict;
+    vio_bytecode **defs;
+    uint32_t defp; /* next index in `defs` */
+    vio_dict *dict; /* maps function names to indices in `defs` */
 
     vio_err_t err;
     char err_msg[VIO_MAX_ERR_LEN];

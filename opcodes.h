@@ -39,6 +39,8 @@ vio_opcode vio_opcode_pack(
     X(load) \
     X(call) \
     X(ret) \
+    X(callq) \
+    X(retq) \
     X(reljmp) \
     X(add) \
     X(sub) \

@@ -4,17 +4,19 @@
 #include "error.h"
 #include "opcodes.h"
 #include "tok.h"
+#include "types.h"
 #include "val.h"
 
-typedef struct _vbytecode_state {
+struct _vbytecode {
     vio_opcode *prog;
     vio_val **consts;
 
     size_t psz, csz;
     uint32_t ip, ic;
-} vio_bytecode;
+};
 
 vio_err_t vio_emit(vio_ctx *ctx, vio_tok *t, vio_bytecode **out);
+vio_err_t vio_bytecode_alloc(vio_bytecode **out);
 void vio_bytecode_free(vio_bytecode *bc);
 
 #endif

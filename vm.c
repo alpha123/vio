@@ -33,23 +33,51 @@ int vm_push(vio_ctx *ctx, vio_val *v) {
 #define CHECK(expr) \
     do{if ((err = (expr))) goto exit;}while(0)
 
-#define SELF prog[pc-1]
+#define EC(prop) (aec->prop)
+
+#define SELF EC(prog)[EC(pc)-1]
 
 #define IMM1 vio_opcode_imm1(SELF)
 #define IMM2 vio_opcode_imm2(SELF)
 #define IMM3 vio_opcode_imm3(SELF)
 #define IMM4 vio_opcode_imm4(SELF)
 
-#define NEXT goto *dispatch[vio_opcode_instr(prog[pc++])]
+#define NEXT goto *dispatch[vio_opcode_instr(EC(prog)[EC(pc)++])]
 #define NEXT_MAYBEGC if (ctx->ocnt > VIO_GC_THRESH) vio_gc(ctx); NEXT
 
 #define EXIT(code) do{ err = code; goto exit; }while(0)
 #define RAISE(code, ...) do{ vio_raise(ctx, code, __VA_ARGS__); EXIT(code); }while(0)
 
+#define PUSH_EXEC_CONTEXT(c) do{ \
+    aec = (struct exec_ctx *)malloc(sizeof(struct exec_ctx)); \
+    EC(prog) = c->prog; EC(consts) = c->consts; EC(pc) = 0; \
+    *ecp++ = aec; \
+    EC(address_sp) = EC(ap_base); }while(0)
+
+#define POP_EXEC_CONTEXT() (aec = *--ecp)
+
+/* lightweight stack frame thing
+   this is probably a subpar implementation, but I really don't
+   want to recursively call vio_exec for every function call */
+struct exec_ctx {
+    vio_opcode *prog;
+    vio_val **consts;
+    uint32_t pc;
+    uint32_t ap_base[VIO_MAX_CALL_DEPTH];
+    uint32_t *address_sp;
+};
+
 vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
     vio_err_t err = 0;
-    vio_opcode *prog = bc->prog;
-    vio_val **consts = bc->consts;
+
+    uint32_t idx, vcnt;
+    vio_val *v;
+    vio_int vcnti;
+    vio_float *vf;
+
+    struct exec_ctx *ec_stack[VIO_MAX_CALL_DEPTH];
+    struct exec_ctx *aec, **ecp = ec_stack;
+    PUSH_EXEC_CONTEXT(bc);
 
 #define INIT_DISPATCH_TABLE(instr) [vop_##instr] = &&op_##instr,
 #define INIT_DISPATCH_TABLE_(instr) [vop_##instr] = &&op_##instr
@@ -58,47 +86,47 @@ vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
     };
 #undef INIT_DISPATCH_TABLE
 #undef INIT_DISPATCH_TABLE_
-
-    uint32_t ap_base[VIO_MAX_CALL_DEPTH], *address_sp,
-             pc = 0, idx, vcnt;
-    vio_val *v;
-    vio_int vcnti;
-    vio_float *vf;
-    address_sp = ap_base;
-
     NEXT;
 
 op_halt:
     EXIT(0);
 op_load:
     idx = IMM1;
-    SAFE_PUSH(consts[idx])
+    SAFE_PUSH(EC(consts)[idx])
     NEXT;
-op_call:
-    if (address_sp - ap_base >= VIO_MAX_CALL_DEPTH)
+op_callq:
+    if (EC(address_sp) - EC(ap_base) >= VIO_MAX_CALL_DEPTH)
         EXIT(VE_EXCEEDED_MAX_CALL_DEPTH);
-    *address_sp++ = pc + 1;
-    if (IMM2 == 1) /* address as operand--function call */
-        pc = IMM1;
-    else if (IMM2 == 2) { /* pop quotation from stack */
-        SAFE_POP(v)
-        EXPECT(v, vv_quot)
-        pc = v->jmp;
-    }
-    else if (IMM2 == 3) { /* pop string from stack and look up address */
+    *EC(address_sp)++ = EC(pc) + 1;
+    SAFE_POP(v)
+    EXPECT(v, vv_quot)
+    EC(pc) = v->jmp;
+    NEXT;
+op_call: {
+    vio_bytecode *fn;
+    uint32_t idx;
+    if (IMM2 == 1) /* index as operand--call a known function */
+        idx = IMM1;
+    else { /* pop string from stack and look up index */
         SAFE_POP(v)
         EXPECT(v, vv_str)
-        if (!vio_dict_lookup(ctx->dict, v->s, v->len, &pc))
+        if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
             RAISE(VE_CALL_TO_UNDEFINED_WORD, "Attempted to call '%.*s', but that word is not defined.", v->len, v->s);
     }
+    fn = ctx->defs[idx];
+    PUSH_EXEC_CONTEXT(fn);
+    NEXT;
+}
+op_retq:
+    /* assume the opcode stream is valid and we never have more rets than calls */
+    EC(pc) = *--EC(address_sp);
     NEXT;
 op_ret:
-    /* assume the opcode stream is valid and we never have more rets than calls */
-    pc = *--address_sp;
+    POP_EXEC_CONTEXT();
     NEXT;
 op_reljmp:
     /* backward jump if imm2 is 1, forward jump if it is 0 */
-    pc += IMM1 * (-2 * IMM2 + 1);
+    EC(pc) += IMM1 * (-2 * IMM2 + 1);
     NEXT;
 op_add:
     CHECK(vio_add(ctx));
