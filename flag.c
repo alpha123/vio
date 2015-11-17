@@ -72,7 +72,7 @@ static flagset_t *set = NULL;
 
 static inline bool
 is_flag(const char *s) {
-    return s[0] == '-' && strlen(s) > 1;
+    return s[0] == '-' && strlen(s) > 1 && strcmp(s, "--") != 0;
 }
 
 /*
