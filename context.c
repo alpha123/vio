@@ -372,37 +372,37 @@ vio_err_t pop_into_vec(vio_ctx *ctx, uint32_t len, uint32_t *idx) {
         err = VE_STACK_EMPTY;
     else {
         vio_val *v = ctx->stack[--ctx->sp];
-        uint32_t i = 0;
+        uint32_t i = len;
         v->vv = (vio_val **)malloc(len * sizeof(vio_val *));
         if (v->vv == NULL)
             err = VE_ALLOC_FAIL;
-        else for (; i < len; ++i) {
-            if ((err = pop_expect(ctx, v->vv + i, -1)))
+        else while (i) {
+            if ((err = pop_expect(ctx, v->vv + --i, -1)))
                 break;
         }
-        push(ctx, v);
-        *idx = i;
+        if (err == 0)
+            push(ctx, v);
+        *idx = len - i;
     }
     return err;
 }
 
+/* gc will take care of the vio_val (if it actually gets allocated),
+   but we should try to restore the stack to what it was like before
+   the error to maximize our chances of recovery */
 #define HANDLE_VEC_ERRORS \
     error: \
-    if (v->s) \
-        free(v->s); \
-    if (v->vv) \
-        free(v->vv); \
-    while (i) { \
+    while (i--)  \
         --ctx->sp; \
-        --i; \
-    } \
     if (err != VE_STACK_OVERFLOW) \
         --ctx->sp; \
     if (v) \
-        free(v); \
+        vio_val_free(v); \
     return err;
 
 vio_err_t vio_push_tag(vio_ctx *ctx, uint32_t nlen, char *name, uint32_t vlen) {
+    /* i must exist so we can properly clean up in case of an error
+       (see HANDLE_VEC_ERRORS) */
     uint32_t i = 0;
     PUSH(vv_tagword)
     v->len = nlen;
