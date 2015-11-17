@@ -174,7 +174,7 @@ vio_err_t vio_coerce(vio_ctx *ctx, vio_val *from, vio_val **to, vio_val_t what) 
             if (TRY_INIT(to))
                 mpf_init_set_si((*to)->n, from->i32);
             break;
-        default: *to = NULL;
+        default: *to = NULL; /* these are only here to shut the compiler up */
     } break;
     case vv_float: switch (what) {
         case vv_int:
@@ -200,6 +200,7 @@ vio_err_t vio_coerce(vio_ctx *ctx, vio_val *from, vio_val **to, vio_val_t what) 
             break;
         default: *to = NULL;
     } break;
+    default: *to = NULL;
     }
     return err;
 }

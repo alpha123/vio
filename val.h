@@ -46,16 +46,18 @@ struct _vval {
 	/* also used for tagword values */
 	vio_val **vv;
 
-	/* location of where to jump to for executing quotations */
-	uint32_t jmp;
+	/* index in `vio_ctx#defs` of a pointer to instructions
+           where a quotation's code can be found (at `jmp` offset) */
+	uint32_t def_idx;
     };
 
     uint32_t rows;
-    /* used for matrix columns, vector size, and tagword value count --
-       the union is purely for readability of matrix operations */
     union {
         uint32_t cols;
         uint32_t vlen;
+
+	/* location of where to jump to for executing quotations */
+	uint32_t jmp;
     };
 
     /* for gc */
