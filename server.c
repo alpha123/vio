@@ -37,7 +37,9 @@ wby_int vio_serve(struct wby_con *conn, void *arg) {
 static struct wby_server *me;
 
 void vio_server_log(const char *msg) {
+#ifdef VIO_SERVER_LOG_STDOUT
     printf("[vio_serve] %s\n", msg);
+#endif
 }
 
 void vio_server_stop(void) {
