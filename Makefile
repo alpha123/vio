@@ -5,7 +5,6 @@ ENABLE_WEBREPL=yes
 USE_SYSTEM_LINENOISE=no
 USE_SYSTEM_LZ4=no
 USE_SYSTEM_DIVSUFSORT=no
-USE_SYSTEM_ART=no
 USE_SYSTEM_SQLITE=no
 
 BLAS_IMPL=openblas
@@ -24,8 +23,8 @@ INCLUDE_DIRS=-I/usr/include -I/usr/local/include
 
 LIBS=-lm -lgmp -l$(BLAS_IMPL)
 
-VIO_SRCS=bytecode.c context.c dict.c error.c gc.c math.c opcodes.c repl.c rewrite.c serialize.c tok.c uneval.c val.c vm.c
-SRCS=$(VIO_SRCS) flag.c
+VIO_SRCS=bytecode.c context.c dict.c error.c gc.c math.c opcodes.c parsercombinators.c repl.c rewrite.c serialize.c tok.c uneval.c val.c vm.c
+SRCS=$(VIO_SRCS) flag.c art.c mpc.c
 VIO_HEADERS=$(VIO_SRCS:.c=.h)
 VIO_HEADERS:=$(filter-out repl.h,$(VIO_HEADERS))
 
@@ -61,12 +60,6 @@ ifeq ($(USE_SYSTEM_DIVSUFSORT),no)
 else
 	LIBS+=-ldivsufsort
 	CFLAGS+=-DUSE_SYSTEM_DIVSUFSORT
-endif
-ifeq ($(USE_SYSTEM_ART),no)
-	SRCS+=art.c
-else
-	LIBS+=-lart
-	CFLAGS+=-DUSE_SYSTEM_ART
 endif
 ifeq ($(USE_SYSTEM_SQLITE),no)
 	#Don't enable until I use it

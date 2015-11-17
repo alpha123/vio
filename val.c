@@ -60,6 +60,10 @@ void vio_val_free(vio_val *v) {
     case vv_mat:
         free(v->vv);
         break;
+    case vv_parser:
+        mpc_undefine(v->p);
+        mpc_delete(v->p);
+        break;
     default: break; /* nothing else needs freeing */
     }
     free(v);

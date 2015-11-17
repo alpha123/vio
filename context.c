@@ -178,6 +178,22 @@ vio_err_t push(vio_ctx *ctx, vio_val *v) {
         return err; \
     }
 
+#define PT_PARSER(name, which) \
+    vio_err_t vio_ ## name ## _parser(vio_ctx *ctx, uint32_t *nlen, char **name, mpc_parser_t **out) { \
+        *out = NULL; \
+        which(vv_parser) \
+        *nlen = v->len; \
+        *name = v->s; \
+        *out = v->p; \
+        return 0; \
+\
+        error: \
+        *nlen = 0; \
+        *name = NULL; \
+        *out = NULL; \
+        return err; \
+    }
+
 vio_err_t vio_pop_tag(vio_ctx *ctx, uint32_t *nlen, char **name, uint32_t *vlen) {
     uint32_t i = 0;
     POP(vv_tagword)
@@ -251,7 +267,8 @@ vio_err_t vio_pop_mat(vio_ctx *ctx, uint32_t *rows, uint32_t *cols) {
     X(PT_FLOAT) \
     X(PT_NUM) \
     X(PT_VECF) \
-    X(PT_MATF)
+    X(PT_MATF) \
+    X(PT_PARSER) \
 
 #define DEF_BOTH(typ) \
    typ(pop, POP) \
@@ -338,6 +355,20 @@ vio_err_t vio_push_matf32(vio_ctx *ctx, uint32_t rows, uint32_t cols, vio_float 
     }
     memcpy(v->vf32, val, len * sizeof(vio_float));
     return 0;
+
+    HANDLE_ERRORS
+}
+
+vio_err_t vio_push_parser(vio_ctx *ctx, uint32_t nlen, char *name, mpc_parser_t *val) {
+    PUSH(vv_parser)
+    v->len = nlen;
+    v->s = (char *)malloc(nlen);
+    if (v->s == NULL) {
+        err = VE_ALLOC_FAIL;
+        goto error;
+    }
+    strncpy(v->s, name, nlen);
+    v->p = val;
 
     HANDLE_ERRORS
 }

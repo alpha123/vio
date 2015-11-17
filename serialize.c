@@ -16,7 +16,11 @@ vio_err_t vio_dump_val(FILE *fp, vio_val *v) {
     case vv_int: TRY_WRITE(&v->i32, vio_int, 1) break;
     case vv_float: TRY_WRITE(&v->f32, vio_float, 1) break;
     case vv_num: mpf_out_str(fp, 10, 0, v->n); break;
-    case vv_quot: TRY_WRITE(&v->jmp, uint32_t, 1) break;
+    case vv_quot:
+        TRY_WRITE(&v->def_idx, uint32_t, 1)
+        TRY_WRITE(&v->jmp, uint32_t, 1)
+        break;
+    case vv_parser: /* save parsers by name */
     case vv_str:
         TRY_WRITE(&v->len, uint32_t, 1)
         TRY_WRITE(v->s, char, v->len)

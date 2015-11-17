@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <gmp.h>
+#include "mpc.h"
 #include "error.h"
 #include "dict.h"
 #include "bytecode.h"
@@ -53,6 +54,7 @@ vio_err_t vio_pop_float(vio_ctx *ctx, vio_float *out);
 vio_err_t vio_pop_num(vio_ctx *ctx, mpf_t *out);
 vio_err_t vio_pop_vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out);
 vio_err_t vio_pop_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out);
+vio_err_t vio_pop_parser(vio_ctx *ctx, uint32_t *nlen, char **name, mpc_parser_t **out);
 
 vio_err_t vio_top_str(vio_ctx *ctx, uint32_t *len, char **out);
 vio_err_t vio_top_int(vio_ctx *ctx, vio_int *out);
@@ -60,6 +62,7 @@ vio_err_t vio_top_float(vio_ctx *ctx, vio_float *out);
 vio_err_t vio_top_num(vio_ctx *ctx, mpf_t *out);
 vio_err_t vio_top_vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out);
 vio_err_t vio_top_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out);
+vio_err_t vio_top_parser(vio_ctx *ctx, uint32_t *nlen, char **name, mpc_parser_t **out);
 
 /* These functions push the internal tag/vec/mat values onto the stack
    and so do not take an out parameter for those (but do take one for the
@@ -74,6 +77,7 @@ vio_err_t vio_push_float(vio_ctx *ctx, vio_float val);
 vio_err_t vio_push_num(vio_ctx *ctx, const mpf_t val);
 vio_err_t vio_push_vecf32(vio_ctx *ctx, uint32_t len, vio_float *val);
 vio_err_t vio_push_matf32(vio_ctx *ctx, uint32_t rows, uint32_t cols, vio_float *val);
+vio_err_t vio_push_parser(vio_ctx *ctx, uint32_t nlen, char *name, mpc_parser_t *val);
 
 vio_err_t vio_push_str_cnt(vio_ctx *ctx, uint32_t cnt, uint32_t *lens, char **vals);
 vio_err_t vio_push_int_cnt(vio_ctx *ctx, uint32_t cnt, vio_int *vals);

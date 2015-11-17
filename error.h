@@ -54,5 +54,12 @@ const char *vio_err_msg(vio_err_t err);
 /* not really intended for public use */
 #define VIO__CHECK(expr) do{ if ((err = (expr))) goto error; }while(0)
 #define VIO__ERRIF(expr, errcode) VIO__CHECK((expr) ? errcode : 0)
+#define VIO__ENSURE_ATLEAST(n) \
+    if (ctx->sp < n) { \
+        err = vio_raise(ctx, VE_STACK_EMPTY, "Function requires at least " \
+                        #n " operands, stack only has %d items.", ctx->sp); \
+        goto error; \
+    }
+
 
 #endif

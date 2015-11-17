@@ -87,6 +87,9 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
         case '-': EMIT_OPCODE(vop_sub); break;
         case '*': EMIT_OPCODE(vop_mul); break;
         case '/': EMIT_OPCODE(vop_div); break;
+        case '|': EMIT_OPCODE(vop_pcor); break;
+        case ',': EMIT_OPCODE(vop_pcthen); break;
+        case '?': EMIT_OPCODE(vop_pcmaybe); break;
         }
         break;
     case 3:
@@ -106,6 +109,10 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
             EMIT_OPCODE(vop_swap);
         else if (strncmp(t->s, "vecf", 4) == 0)
             EMIT_OPCODE(vop_vecf);
+        break;
+    case 5:
+        if (strncmp(t->s, "match", 5) == 0)
+            EMIT_OPCODE(vop_pcmatchstr);
         break;
     }
 }
@@ -187,6 +194,14 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
                     EMIT_OPCODE(vop_call);
                 }
                 /* otherwise do nothing since emit_builtin did all the work */
+            }
+            break;
+        case vt_rule:
+            EMIT_CONST(vv_parser) {
+                v->len = t->len;
+                v->s = (char *)malloc(v->len);
+                strncpy(v->s, t->s, v->len);
+                v->p = mpc_new(v->s);
             }
             break;
         }

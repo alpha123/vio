@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <gmp.h>
+#include "mpc.h"
 #include "attrib.h"
 #include "types.h"
 #include "context.h"
@@ -13,6 +14,7 @@
     X(tagword) \
     X(vecf) X(vec) \
     X(matf) X(mat) \
+    X(parser) \
     X_(quot) 
 
 typedef enum {
@@ -45,6 +47,8 @@ struct _vval {
 	vio_float *vf32;
 	/* also used for tagword values */
 	vio_val **vv;
+
+	mpc_parser_t *p;
 
 	/* index in `vio_ctx#defs` of a pointer to instructions
            where a quotation's code can be found (at `jmp` offset) */

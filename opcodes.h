@@ -34,6 +34,8 @@ vio_opcode vio_opcode_pack(
     uint8_t imm2, uint8_t imm3, uint8_t imm4
 );
 
+/* pcX opcodes handle parser combinators */
+
 #define LIST_VM_INSTRUCTIONS(X, X_) \
     X(halt) \
     X(load) \
@@ -51,6 +53,13 @@ vio_opcode vio_opcode_pack(
     X(swap) \
     X(vec) \
     X(vecf) \
+    X(pcor) \
+    X(pcthen) \
+    X(pcnot) \
+    X(pcmaybe) \
+    X(pcmany) \
+    X(pcmore) \
+    X(pcmatchstr) \
     X_(nop)
 
 #define DEF_INSTR_CONSTS(instr) vop_##instr,

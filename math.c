@@ -4,13 +4,6 @@
 #include "attrib.h"
 #include "math.h"
 
-#define ENSURE_ATLEAST(n) \
-    if (ctx->sp < n) { \
-        err = vio_raise(ctx, VE_STACK_EMPTY, "Function requires at least " \
-                        #n " operands, stack only has %d items.", ctx->sp); \
-        goto error; \
-    }
-
 #define CLEANUP \
     return err; \
     error: \
@@ -232,7 +225,7 @@ END_OP(div)
 #define BIN_OP(name) \
     vio_err_t vio_##name(vio_ctx *ctx) { \
         vio_err_t err = 0; \
-        ENSURE_ATLEAST(2) \
+        VIO__ENSURE_ATLEAST(2) \
 \
         vio_val *a = ctx->stack[--ctx->sp], *b; \
         b = ctx->stack[--ctx->sp]; \

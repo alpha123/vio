@@ -1,4 +1,5 @@
 #include "math.h"
+#include "parsercombinators.h"
 #include "gc.h"
 #include "vm.h"
 
@@ -147,12 +148,16 @@ op_reljmp:
     EC(pc) += IMM1 * (-2 * IMM2 + 1);
     NEXT;
 op_add:
+    if (vio_what(ctx) == vv_parser)
+        goto op_pcmore;
     CHECK(vio_add(ctx));
     NEXT_MAYBEGC;
 op_sub:
     CHECK(vio_sub(ctx));
     NEXT_MAYBEGC;
 op_mul:
+    if (vio_what(ctx) == vv_parser)
+        goto op_pcmany;
     CHECK(vio_mul(ctx));
     NEXT_MAYBEGC;
 op_div:
@@ -198,6 +203,27 @@ op_vecf:
         vio_pop_float(ctx, vf + i);
     vio_push_vecf32(ctx, vcnt, vf);
     NEXT;
+op_pcmatchstr:
+    CHECK(vio_pc_str(ctx));
+    NEXT_MAYBEGC;
+op_pcthen:
+    CHECK(vio_pc_then(ctx));
+    NEXT_MAYBEGC;
+op_pcor:
+    CHECK(vio_pc_or(ctx));
+    NEXT_MAYBEGC;
+op_pcnot:
+    CHECK(vio_pc_not(ctx));
+    NEXT_MAYBEGC;
+op_pcmaybe:
+    CHECK(vio_pc_maybe(ctx));
+    NEXT_MAYBEGC;
+op_pcmany:
+    CHECK(vio_pc_many(ctx));
+    NEXT_MAYBEGC;
+op_pcmore:
+    CHECK(vio_pc_more(ctx));
+    NEXT_MAYBEGC;
 op_nop:
     NEXT;
 
