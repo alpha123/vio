@@ -9,8 +9,68 @@
 #define is_short_word(t) ((t)->what == vt_word && (t)->len == 1)
 #define is_vec_start(t) (is_short_word(t) && (t)->s[0] == '{')
 #define is_vec_end(t) (is_short_word(t) && (t)->s[0] == '}')
+#define is_short_comma_combinator(t) ((t)->what == vt_word && (t)->s[0] == ',' && (t)->len > 3)
+#define is_comma_rule(t) (is_short_comma_combinator(t) && (t)->s[1] == '<')
+#define is_comma_matchstr(t) (is_short_comma_combinator(t) && (t)->s[1] == '`')
 
-/* rewrite vector literals `{a b c}` into `a b c 3 vec` */
+/* rewrite match strings `foo`  into '"foo" match' */
+vio_err_t rewrite_matchstr(vio_tok **begin) {
+    vio_tok *t = *begin, *next;
+    while (t) {
+        if (t->what == vt_matchstr) {
+            t->what = vt_str;
+            next = t->next;
+            t->next = (vio_tok *)malloc(sizeof(vio_tok));
+            if (t->next == NULL)
+                return VE_ALLOC_FAIL;
+            t->next->what = vt_word;
+            t->next->len = 5;
+            t->next->s = (char *)malloc(5);
+            if (t->next->s == NULL)
+                return VE_ALLOC_FAIL;
+            strncpy(t->next->s, "match", 5);
+            t->next->next = next;
+            t = next;
+        }
+        else
+            t = t->next;
+    }
+    return 0;
+}
+
+/* rewrite ,<rule> and ,`str` into '<rule> ,' and '`str` ,' */
+vio_err_t rewrite_short_comma_combinator(vio_tok **begin) {
+    vio_tok *t = *begin, *next;
+    char *rest;
+    while (t) {
+        if (is_comma_rule(t) || is_comma_matchstr(t)) {
+            t->what = is_comma_rule(t) ? vt_rule : vt_matchstr;
+            /* remove initial comma and surrounding brackets/backticks */
+            rest = (char *)malloc(t->len - 3);
+            strncpy(rest, t->s + 2, t->len - 3);
+            free(t->s);
+            t->s = rest;
+            t->len -= 3;
+            next = t->next;
+            t->next = (vio_tok *)malloc(sizeof(vio_tok));
+            if (t->next == NULL)
+                return VE_ALLOC_FAIL;
+            t->next->what = vt_word;
+            t->next->len = 1;
+            t->next->s = (char *)malloc(1);
+            if (t->next->s == NULL)
+                return VE_ALLOC_FAIL;
+            t->next->s[0] = ',';
+            t->next->next = next;
+            t = next;
+        }
+        else
+            t = t->next;
+    }
+    return 0;
+}
+
+/* rewrite vector literals {a b c} into 'a b c 3 vec' */
 vio_err_t rewrite_vec(vio_tok **begin) {
     vio_err_t err = 0;
     unsigned int vs_start[MAX_VECTOR_NEST], *vecsize;
@@ -53,7 +113,8 @@ vio_err_t rewrite_vec(vio_tok **begin) {
             t = tmp;
         }
         else if (vecsize != vs_start) {
-            ++*vecsize;
+            if (t->what != vt_word)
+                ++*vecsize;
             last = t;
             t = t->next;
         }
@@ -70,5 +131,5 @@ vio_err_t rewrite_vec(vio_tok **begin) {
 }
 
 vio_err_t vio_rewrite(vio_tok **t) {
-    return rewrite_vec(t);
+    return rewrite_short_comma_combinator(t) || rewrite_matchstr(t) || rewrite_vec(t);
 }

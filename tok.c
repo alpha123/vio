@@ -53,7 +53,7 @@ state_fn states[] = {
 #undef DECLSTATES_
 
 /* Set up our state machine. 0 means we (should) never enter that state (and error if we do). */
-state_code transitions[][10] = {
+static state_code transitions[][10] = {
     /*		 read	quot	esc	digit	dot	angle	btick	msesc	wordc	mod */
     [bad_state] = {0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
     [next]   =	{next,	str,	0,	num,	tagword,rule,	mtstr,	0,	word,	conj},
@@ -81,10 +81,10 @@ void vio_tokenizer_init(vio_tokenizer *st) {
 }
 
 void vio_tok_free(vio_tok *t) {
-    /*if (t->s != NULL) {
+    if (t->s != NULL) {
         free(t->s);
         t->s = NULL;
-    }*/
+    }
     t->next = NULL;
     free(t);
 }
@@ -122,6 +122,7 @@ vio_err_t vio_tok_new(vio_tok_t type, vio_tokenizer *s, const char *str, uint32_
     else
         s->t->next = t;
     s->t = t;
+    t->next = NULL;
 
     return 0;
 
