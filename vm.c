@@ -49,23 +49,40 @@ int vm_push(vio_ctx *ctx, vio_val *v) {
 #define RAISE(code, ...) do{ vio_raise(ctx, code, __VA_ARGS__); EXIT(code); }while(0)
 
 #define PUSH_EXEC_CONTEXT(c) do{ \
-    aec = (struct exec_ctx *)malloc(sizeof(struct exec_ctx)); \
-    EC(prog) = c->prog; EC(consts) = c->consts; EC(pc) = 0; \
-    *ecp++ = aec; \
-    EC(address_sp) = EC(ap_base); }while(0)
+    CHECK(alloc_faux_stack_frame(&execctx, c, &aec)); \
+    *ecp++ = aec; }while(0)
 
-#define POP_EXEC_CONTEXT() (aec = *--ecp)
+#define POP_EXEC_CONTEXT() do{ free(*--ecp); aec = *(ecp - 1); }while(0)
 
-/* lightweight stack frame thing
+/* lightweight stack frame thing for handling function calls
    this is probably a subpar implementation, but I really don't
    want to recursively call vio_exec for every function call */
-struct exec_ctx {
+struct stack_frame {
     vio_opcode *prog;
     vio_val **consts;
     uint32_t pc;
     uint32_t ap_base[VIO_MAX_CALL_DEPTH];
     uint32_t *address_sp;
+
+    struct stack_frame *next;
 };
+
+/* exists entirely to hold a free list of stack_frames
+   so that we don't have to do an allocation on every function call
+   NOTE: currently unused, but exists so the API won't change */
+struct exec_ctx {
+};
+
+vio_err_t alloc_faux_stack_frame(struct exec_ctx *_unused_ctx, vio_bytecode *from, struct stack_frame **out) {
+    *out = (struct stack_frame *)malloc(sizeof(struct stack_frame));
+    if (*out == NULL)
+        return VE_ALLOC_FAIL;
+    (*out)->prog = from->prog;
+    (*out)->consts = from->consts;
+    (*out)->pc = 0;
+    (*out)->address_sp = (*out)->ap_base;
+    return 0;
+}
 
 vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
     vio_err_t err = 0;
@@ -75,8 +92,9 @@ vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
     vio_int vcnti;
     vio_float *vf;
 
-    struct exec_ctx *ec_stack[VIO_MAX_CALL_DEPTH];
-    struct exec_ctx *aec, **ecp = ec_stack;
+    struct exec_ctx execctx;
+    struct stack_frame *ec_stack[VIO_MAX_CALL_DEPTH];
+    struct stack_frame *aec, **ecp = ec_stack;
     PUSH_EXEC_CONTEXT(bc);
 
 #define INIT_DISPATCH_TABLE(instr) [vop_##instr] = &&op_##instr,
