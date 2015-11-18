@@ -61,6 +61,7 @@ void vio_val_free(vio_val *v) {
         free(v->vv);
         break;
     case vv_parser:
+        free(v->s);
         mpc_undefine(v->p);
         mpc_delete(v->p);
         break;

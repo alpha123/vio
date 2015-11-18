@@ -4,11 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <limits.h>
-#ifdef USE_SYSTEM_ART
-#include <art.h>
-#else
 #include "art.h"
-#endif
 #include "error.h"
 
 /* Map a word name to an integer index.

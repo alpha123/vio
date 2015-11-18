@@ -53,6 +53,7 @@ vio_opcode vio_opcode_pack(
     X(swap) \
     X(vec) \
     X(vecf) \
+    X(pcparse) \
     X(pcor) \
     X(pcthen) \
     X(pcnot) \

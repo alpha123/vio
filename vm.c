@@ -203,6 +203,9 @@ op_vecf:
         vio_pop_float(ctx, vf + i);
     vio_push_vecf32(ctx, vcnt, vf);
     NEXT;
+op_pcparse:
+    CHECK(vio_pc_parse(ctx));
+    NEXT_MAYBEGC;
 op_pcmatchstr:
     CHECK(vio_pc_str(ctx));
     NEXT_MAYBEGC;

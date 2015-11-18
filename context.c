@@ -369,6 +369,7 @@ vio_err_t vio_push_parser(vio_ctx *ctx, uint32_t nlen, char *name, mpc_parser_t 
     }
     strncpy(v->s, name, nlen);
     v->p = val;
+    return 0;
 
     HANDLE_ERRORS
 }

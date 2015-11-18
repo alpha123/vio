@@ -1,36 +1,81 @@
 #include "mpc.h"
 #include "parsercombinators.h"
 
-vio_err_t vio_pc_str(vio_ctx *ctx) {
+vio_err_t vio_pc_parse(vio_ctx *ctx) {
     vio_err_t err = 0;
-    VIO__ENSURE_ATLEAST(1)
 
+    char *s, *ns = NULL, *ss = NULL;
     uint32_t len;
-    char *s, *name;
     mpc_parser_t *p;
+    VIO__CHECK(vio_pop_parser(ctx, &len, &s, &p)); /* ignore name, we're not interested in it */
     VIO__CHECK(vio_pop_str(ctx, &len, &s));
 
-    VIO__ERRIF((name = (char *)malloc(len)) == NULL, VE_ALLOC_FAIL);
+    /* mpc only accepts null-terminated strings */
+    VIO__ERRIF((ns = (char *)malloc(len + 1)) == NULL, VE_ALLOC_FAIL);
+    strncpy(ns, s, len);
+    ns[len] = '\0';
 
-    strncpy(name, s, len);
+    if (len > 12) {
+        ss = (char *)malloc(16);
+        strncpy(ss, s, 12);
+        strncpy(ss + 12, "...", 3);
+        ss[15] = '\0';
+    }
+    else {
+        ss = (char *)malloc(len + 1);
+        strncpy(ss, s, len);
+        ss[len] = '\0';
+    }
+
+    mpc_print(p);
+    putchar('\n');
+
+    mpc_result_t res;
+    if (mpc_parse(ss, ns, p, &res))
+        printf("%s\n", (char *)res.output);
+    else {
+        mpc_err_print(res.error);
+        mpc_err_delete(res.error);
+    }
+    free(ns);
+    free(ss);
+    return 0;
+
+    error:
+    if (ns) free(ns);
+    if (ss) free(ss);
+    return err;
+}
+
+vio_err_t vio_pc_str(vio_ctx *ctx) {
+    vio_err_t err = 0;
+
+    uint32_t len;
+    char *raw_s, *s;
+    mpc_parser_t *p;
+    VIO__CHECK(vio_pop_str(ctx, &len, &raw_s));
+
+    /* mpc_string expects a null-terminated argument */
+    VIO__ERRIF((s= (char *)malloc(len + 1)) == NULL, VE_ALLOC_FAIL);
+
+    strncpy(s, raw_s, len);
+    s[len] = '\0';
     if (len == 1)
         p = mpc_char(s[0]);
     else
         p = mpc_string(s);
 
-    VIO__CHECK(vio_push_parser(ctx, len, name, p));
+    VIO__CHECK(vio_push_parser(ctx, len, s, p));
     return 0;
 
     error:
-    if (name) free(name);
+    if (s) free(s);
     return err;
 }
 
 #define BIN_COMBINATOR(name, combine) \
     vio_err_t vio_pc_##name(vio_ctx *ctx) { \
         vio_err_t err = 0; \
-        VIO__ENSURE_ATLEAST(2) \
-\
         mpc_parser_t *a, *b; \
         uint32_t name_len_ignore; \
         char *name_ignore; \
@@ -47,8 +92,6 @@ vio_err_t vio_pc_str(vio_ctx *ctx) {
 #define UN_COMBINATOR(name, combine) \
     vio_err_t vio_pc_##name(vio_ctx *ctx) { \
         vio_err_t err = 0; \
-        VIO__ENSURE_ATLEAST(1) \
-\
         mpc_parser_t *a; \
         uint32_t name_len_ignore; \
         char *name_ignore; \
@@ -61,10 +104,10 @@ vio_err_t vio_pc_str(vio_ctx *ctx) {
         return err; \
     }
 
-BIN_COMBINATOR(then, mpca_and(2, a, b))
-BIN_COMBINATOR(or, mpca_or(2, a, b))
+BIN_COMBINATOR(then, mpc_and(2, mpcf_strfold, a, b))
+BIN_COMBINATOR(or, mpc_or(2, a, b))
 
-UN_COMBINATOR(not, mpca_not(a))
-UN_COMBINATOR(maybe, mpca_maybe(a))
-UN_COMBINATOR(many, mpca_many(a))
-UN_COMBINATOR(more, mpca_many1(a))
+UN_COMBINATOR(not, mpc_not(a, free))
+UN_COMBINATOR(maybe, mpc_maybe_lift(a, mpcf_ctor_str))
+UN_COMBINATOR(many, mpc_many(mpcf_strfold, a))
+UN_COMBINATOR(more, mpc_many1(mpcf_strfold, a))

@@ -113,6 +113,8 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
     case 5:
         if (strncmp(t->s, "match", 5) == 0)
             EMIT_OPCODE(vop_pcmatchstr);
+        else if (strncmp(t->s, "parse", 5) == 0)
+            EMIT_OPCODE(vop_pcparse);
         break;
     }
 }
