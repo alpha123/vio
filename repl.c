@@ -122,7 +122,7 @@ int main(int argc, const char **argv) {
         }
         vio_tokenizer st;
         vio_tokenizer_init(&st);
-        uint32_t bsz = 1024, z[] = {0, 0};
+        uint32_t bsz = 1024;
         st.s = (char *)malloc(bsz);
         plen = 0;
         while (!feof(in)) {
@@ -136,15 +136,7 @@ int main(int argc, const char **argv) {
         st.len = plen;
         CHECK(vio_tokenize(&st));
         CHECK(vio_emit(&ctx, st.fst, &bc));
-
-        fwrite(&clen, sizeof(uint32_t), 1, out);
-        for (uint32_t i = 0; i < bc->ic; ++i)
-            vio_dump_val(out, bc->consts[i]);
-        fwrite(z, sizeof(uint32_t), 2, out);
-        fwrite(&plen, sizeof(uint32_t), 1, out);
-        for (uint32_t i = 0; i < bc->ip; ++i)
-            fwrite(bc->prog + i, sizeof(vio_opcode), 1, out);
-        return 0;
+        return vio_dump_bytecode(bc, out);
     }
     else if (bc_file) {
     }
@@ -202,6 +194,11 @@ int main(int argc, const char **argv) {
         }
         else if (strcmp(line, "ds") == 0 || strcmp(line, "dump-stack") == 0)
             vio_print_stack(&ctx, stdout);
+        else if (strncmp(line, "save ", 5) == 0) {
+            FILE *fp = fopen(line + 5, "wb");
+            vio_dump(&ctx, fp);
+            fclose(fp);
+        }
         else {
             s = do_expr(&ctx, line);
             if (s == NULL)
