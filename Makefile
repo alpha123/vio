@@ -104,3 +104,7 @@ clean:
 .PHONY: clean-deps
 clean-deps:
 	rm -rf webrepl/jq-console
+
+.PHONY: semicolons
+semicolons:
+	fgrep -o ';' $(VIO_SRCS) $(VIO_HEADERS) | wc -l | tr -d '[:space:]' | xargs -0 printf '%d semicolons (including header files)'
