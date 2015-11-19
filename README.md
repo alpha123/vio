@@ -102,7 +102,7 @@ Arbitrary-precision floats
 `3.22`
 
 Tagwords  
-These are kind of like Ruby's symbols or Erlang's atoms, except they can have values attached (sort of named vectors).  
+These are kind of like Ruby's symbols or Erlang's atoms, except they can have values attached (sort of named vectors).
 ```
 .foo
 .bar{20}
@@ -110,20 +110,20 @@ These are kind of like Ruby's symbols or Erlang's atoms, except they can have va
 You could pattern match on them, if I'd implemented that.
 
 Vectors of all of the above  
-Row-major by default (todo: reconsider that?)
-`{7 20 433}`  
-Can contain any of the above types, and may be heterogeneous. Homogeneous float vectors are optimized to *GO FAST*.
+Row-major by default (todo: reconsider that?)  
+Can contain any of the above types, and may be heterogeneous. Homogeneous float vectors are optimized to *GO FAST*.  
+`{7 20 433}`
 
 Matrices  
-`{{ 1 2 3 ; 2 4 6 ; 3 6 9 }}`  
-idk how these work yet, but eventually you'll be able to do useful vector-matrix and matrix-matrix things
+idk how these work yet, but eventually you'll be able to do useful vector-matrix and matrix-matrix things  
+`{{ 1 2 3 ; 2 4 6 ; 3 6 9 }}`
 
 Quotations  
-Basically lambdas but without formal parameters  
+Basically lambdas but without formal parameters.  
 `[ 2 + ]`
 
 Parsers  
-Yeah parsers are their own type of value. It's about as weird as it sounds, but you can do cool stuff.  
+Yeah parsers are their own type of value. It's about as weird as it sounds, but you can do cool stuff.
 ```
 `foo`
 digits: <d> +
