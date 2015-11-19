@@ -19,4 +19,7 @@ vio_err_t vio_emit(vio_ctx *ctx, vio_tok *t, vio_bytecode **out);
 vio_err_t vio_bytecode_alloc(vio_bytecode **out);
 void vio_bytecode_free(vio_bytecode *bc);
 
+vio_err_t vio_bytecode_alloc_opcodes(vio_bytecode *bc);
+vio_err_t vio_bytecode_alloc_consts(vio_bytecode *bc);
+
 #endif

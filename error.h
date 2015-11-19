@@ -20,6 +20,7 @@
     X(VE_UNMATCHED_VEC_CLOSE, "Syntax error: unmatched '}'") \
 \
     X(VE_IO_FAIL, "IO Error: unknown.") \
+    X(VE_CORRUPT_IMAGE, "Image appears to be corrupt.") \
 \
     X(VE_STACK_EMPTY, "Attempt to pop empty stack.") \
     X(VE_STACK_OVERFLOW, "Stack overflow.") \

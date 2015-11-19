@@ -1,5 +1,6 @@
 #include <float.h>
 #include <math.h>
+#include "mpc_private.h"
 #include "val.h"
 
 VIO_CONST
@@ -89,6 +90,117 @@ void vio_mark_val(vio_val *v) {
         break;
     default: break; /* nothing else references anything */
     }
+}
+
+vio_err_t clone_parser(mpc_parser_t *p, mpc_parser_t **out) {
+    vio_err_t err = 0;
+    mpc_parser_t *q = (mpc_parser_t *)malloc(sizeof(mpc_parser_t));
+    VIO__ERRIF(q == NULL, VE_ALLOC_FAIL);
+    memcpy(q, p, sizeof(mpc_parser_t));
+    /* memcpy got most of the stuff, now just copy all the pointers */
+    if (p->name) {
+        q->name = (char *)malloc(strlen(p->name));
+        VIO__ERRIF(q->name == NULL, VE_ALLOC_FAIL);
+        strcpy(q->name, p->name);
+    }
+    switch (p->type) {
+    case MPC_TYPE_EXPECT:
+        q->data.expect.m = (char *)malloc(strlen(p->data.expect.m));
+        VIO__ERRIF(q->data.expect.m == NULL, VE_ALLOC_FAIL);
+        strcpy(q->data.expect.m, p->data.expect.m);
+        VIO__CHECK(clone_parser(p->data.expect.x, &q->data.expect.x));
+        break;
+    case MPC_TYPE_STRING:
+        q->data.string.x = (char *)malloc(strlen(p->data.string.x));
+        VIO__ERRIF(q->data.string.x == NULL, VE_ALLOC_FAIL);
+        strcpy(q->data.string.x, p->data.string.x);
+        break;
+    case MPC_TYPE_NOT:
+    case MPC_TYPE_MAYBE:
+        VIO__CHECK(clone_parser(p->data.not.x, &q->data.not.x));
+        break;
+    case MPC_TYPE_MANY:
+    case MPC_TYPE_MANY1:
+    case MPC_TYPE_COUNT:
+        VIO__CHECK(clone_parser(p->data.repeat.x, &q->data.repeat.x));
+        break;
+    case MPC_TYPE_AND:
+        q->data.and.dxs = (mpc_dtor_t *)malloc(sizeof(mpc_dtor_t) * p->data.and.n);
+        memcpy(q->data.and.dxs, p->data.and.dxs, sizeof(mpc_dtor_t) * p->data.and.n);
+        q->data.and.xs = (mpc_parser_t **)malloc(sizeof(mpc_parser_t) * p->data.and.n);
+        VIO__ERRIF(q->data.and.xs == NULL, VE_ALLOC_FAIL);
+        for (uint32_t i = 0; i < p->data.and.n; ++i)
+            VIO__CHECK(clone_parser(p->data.and.xs[i], q->data.and.xs + i));
+        break;
+    case MPC_TYPE_OR:
+        q->data.or.xs = (mpc_parser_t **)malloc(sizeof(mpc_parser_t) * p->data.or.n);
+        for (uint32_t i = 0; i < p->data.or.n; ++i)
+            VIO__CHECK(clone_parser(p->data.or.xs[i], q->data.or.xs + i));
+        break;
+    }
+    *out = q;
+    return 0;
+
+    error:
+    if (q->name) free(q->name);
+    if (q) free(q);
+    /* Do I hear something leaking? */
+    return err;
+}
+
+vio_err_t vio_val_clone(vio_ctx *ctx, vio_val *v, vio_val **out) {
+    vio_err_t err = 0;
+
+    VIO__CHECK(vio_val_new(ctx, out, v->what));
+    switch (v->what) {
+    case vv_int: (*out)->i32 = v->i32; break;
+    case vv_float: (*out)->f32 = v->f32; break;
+    case vv_num: mpf_init_set((*out)->n, v->n); break;
+    case vv_tagword:
+        (*out)->vv = (vio_val **)malloc(sizeof(vio_val *) * v->vlen);
+        for (uint32_t i = 0; i < v->vlen; ++i)
+            VIO__CHECK(vio_val_clone(ctx, v->vv[i], (*out)->vv + i));
+        /* FALLTHROUGH -- copy name */
+    case vv_str:
+        (*out)->len = v->len;
+        (*out)->s = (char *)malloc(v->len);
+        VIO__ERRIF((*out)->s == NULL, VE_ALLOC_FAIL);
+        strncpy((*out)->s, v->s, v->len);
+        break;
+    /* Quotations and parsers are immutable, but copy
+       them so that they aren't tied to the lifetime
+       of the original. */
+    case vv_quot:
+        (*out)->def_idx = v->def_idx;
+        (*out)->jmp = v->jmp;
+        break;
+    case vv_parser:
+        VIO__CHECK(clone_parser(v->p, &(*out)->p));
+        break;
+    case vv_vecf:
+        (*out)->vf32 = (vio_float *)malloc(sizeof(vio_float) * v->vlen);
+        memcpy((*out)->vf32, v->vf32, sizeof(vio_float) * v->vlen);
+        break;
+    case vv_matf:
+        (*out)->vf32 = (vio_float *)malloc(sizeof(vio_float) * v->rows * v->cols);
+        memcpy((*out)->vf32, v->vf32, sizeof(vio_float) * v->rows * v->cols);
+        break;
+    case vv_vec:
+        (*out)->vv = (vio_val **)malloc(sizeof(vio_val *) * v->vlen);
+        for (uint32_t i = 0; i < v->vlen; ++i)
+            VIO__CHECK(vio_val_clone(ctx, v->vv[i], (*out)->vv + i));
+        break;
+    case vv_mat:
+        (*out)->vv = (vio_val **)malloc(sizeof(vio_val *) * v->rows * v->cols);
+        for (uint32_t i = 0; i < v->rows * v->cols; ++i)
+            VIO__CHECK(vio_val_clone(ctx, v->vv[i], (*out)->vv + i));
+        break;
+    }
+    return 0;
+
+    error:
+    if (*out) free(*out);
+    return err;
 }
 
 #define TRY_INIT(_to) !(err = vio_val_new(ctx, _to, what))

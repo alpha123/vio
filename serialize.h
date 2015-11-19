@@ -23,11 +23,11 @@ vio_err_t vio_load_top(vio_ctx *ctx, FILE *fp);
    and this function should be considered a semi-private
    API. */
 vio_err_t vio_dump_val(vio_val *v, FILE *fp);
-vio_err_t vio_load_val(vio_val **v, FILE *fp);
+vio_err_t vio_load_val(vio_ctx *ctx, vio_val **v, FILE *fp);
 
 
 vio_err_t vio_dump_bytecode(vio_bytecode *bc, FILE *fp);
-vio_err_t vio_load_bytecode(vio_bytecode **bc, FILE *fp);
+vio_err_t vio_load_bytecode(vio_ctx *ctx, vio_bytecode **bc, FILE *fp);
 
 /* Save/load all currently defined words */
 vio_err_t vio_dump_dict(vio_ctx *ctx, FILE *fp);

@@ -27,6 +27,13 @@ int vm_push(vio_ctx *ctx, vio_val *v) {
     if (!(v = vm_pop(ctx))) \
         return VE_STACK_EMPTY;
 
+int safe_push_clone(vio_ctx *ctx, vio_val *v) {
+    vio_val *clone;
+    if (vio_val_clone(ctx, v, &clone))
+        return 1;
+    return vm_push(ctx, clone);
+}
+
 #define EXPECT(v, t) \
     if (v->what != t) \
         return VE_STRICT_TYPE_FAIL;
@@ -111,7 +118,7 @@ op_halt:
     EXIT(0);
 op_load:
     idx = IMM1;
-    SAFE_PUSH(EC(consts)[idx])
+    safe_push_clone(ctx, EC(consts)[idx]);
     NEXT;
 op_callq:
     if (EC(address_sp) - EC(ap_base) >= VIO_MAX_CALL_DEPTH)

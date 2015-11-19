@@ -199,6 +199,11 @@ int main(int argc, const char **argv) {
             vio_dump(&ctx, fp);
             fclose(fp);
         }
+        else if (strncmp(line, "load ", 5) == 0) {
+            FILE *fp = fopen(line + 5, "rb");
+            vio_load(&ctx, fp);
+            fclose(fp);
+        }
         else {
             s = do_expr(&ctx, line);
             if (s == NULL)

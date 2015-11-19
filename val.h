@@ -75,6 +75,8 @@ void vio_mark_val(vio_val *v);
 
 vio_err_t vio_coerce(vio_ctx *ctx, vio_val *from, vio_val **to, vio_val_t what);
 
+vio_err_t vio_val_clone(vio_ctx *ctx, vio_val *v, vio_val **out);
+
 VIO_CONST
 int vio_is_numeric_type(vio_val_t what);
 

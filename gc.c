@@ -4,6 +4,11 @@
 void vio_mark(vio_ctx *ctx) {
     for (uint32_t i = 0; i < ctx->sp; ++i)
         vio_mark_val(ctx->stack[i]);
+    /* never gc constants from functions, that would be bad */
+    for (uint32_t i = 0; i < ctx->defp; ++i) {
+        for (uint32_t j = 0; j < ctx->defs[i]->ic; ++j)
+            vio_mark_val(ctx->defs[i]->consts[j]);
+    }
 }
 
 void vio_sweep(vio_ctx *ctx) {

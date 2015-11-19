@@ -1,3 +1,4 @@
+#include <math.h>
 #include <gmp.h>
 #include "art.h"
 #include "mpc_private.h"
@@ -15,6 +16,12 @@ vio_err_t vio_dump_top(vio_ctx *ctx, FILE *fp) {
     tn = tpl_map((fmt), __VA_ARGS__); \
     tpl_pack(tn, 0); \
     VIO__ERRIF(tpl_dump(tn, TPL_FD, fd) != 0, VE_IO_FAIL); \
+    tpl_free(tn); }while(0)
+
+#define LOAD(fmt, ...) do{ \
+    tn = tpl_map(fmt, __VA_ARGS__); \
+    VIO__ERRIF(tpl_load(tn, TPL_FD, fd) != 0, VE_CORRUPT_IMAGE); \
+    tpl_unpack(tn, 0); \
     tpl_free(tn); }while(0)
 
 vio_err_t vio_dump_parser(mpc_parser_t *p, FILE *fp) {
@@ -65,14 +72,23 @@ vio_err_t vio_dump_parser(mpc_parser_t *p, FILE *fp) {
     return err;
 }
 
-#define SAVEV(fmt, ...) SAVE("u" fmt, &v->what, __VA_ARGS__)
-
 /* tpl kinda chokes on 0-length fixed arrays */
 #define SAVESTR(v, other, ...) do{ \
+    SAVE("u", &v->len); \
     if (v->len > 0) \
-        SAVEV("uc#" other, &v->len, v->s, v->len, __VA_ARGS__); \
+        SAVE("c#" other, v->s, v->len, __VA_ARGS__); \
     else \
-        SAVEV("u" other, &v->len, __VA_ARGS__); }while(0)
+        SAVE(other, __VA_ARGS__); }while(0)
+
+#define LOADSTR(v, other, ...) do{ \
+    LOAD("u", &v->len); \
+    if (v->len > 0) { \
+        v->s = (char *)malloc(v->len); \
+        VIO__ERRIF(v->s == NULL, VE_ALLOC_FAIL); \
+        LOAD("c#" other, v->s, v->len, __VA_ARGS__); \
+    } \
+    else \
+        LOAD(other, __VA_ARGS__); }while(0)
 
 vio_err_t vio_dump_val(vio_val *v, FILE *fp) {
     vio_err_t err = 0;
@@ -80,15 +96,17 @@ vio_err_t vio_dump_val(vio_val *v, FILE *fp) {
     char *ns;
     mp_exp_t ex;
     int fd = fileno(fp);
+    SAVE("u", &v->what);
     switch (v->what) {
-    case vv_int: SAVEV("I", &v->i32); break;
-    case vv_float: SAVEV("f", &v->f32); break;
+    case vv_int: SAVE("I", &v->i32); break;
+    case vv_float: SAVE("f", &v->f32); break;
     case vv_num:
         ns = mpf_get_str(NULL, &ex, 10, 0, v->n);
-        SAVEV("is", &ex, &ns);
+        SAVE("Us", &ex, &ns);
+        free(ns);
         break;
     case vv_quot:
-        SAVEV("uu", &v->def_idx, &v->jmp);
+        SAVE("uu", &v->def_idx, &v->jmp);
         break;
     case vv_parser:
         SAVESTR(v, "", NULL);
@@ -103,18 +121,20 @@ vio_err_t vio_dump_val(vio_val *v, FILE *fp) {
             VIO__CHECK(vio_dump_val(v->vv[i], fp));
         break;
     case vv_vecf:
-        SAVEV("uf#", &v->vlen, v->vf32, v->vlen);
+        SAVE("u", &v->vlen);
+        SAVE("f#", v->vf32, v->vlen);
         break;
     case vv_matf:
-        SAVEV("uuf#", &v->rows, &v->cols, v->vf32, v->rows * v->cols);
+        SAVE("uu", &v->rows, &v->cols);
+        SAVE("f#", v->vf32, v->rows * v->cols);
         break;
     case vv_vec:
-        SAVEV("u", &v->vlen);
+        SAVE("u", &v->vlen);
         for (uint32_t i = 0; i < v->vlen; ++i)
             VIO__CHECK(vio_dump_val(v->vv[i], fp));
         break;
     case vv_mat:
-        SAVEV("uu", &v->rows, &v->cols);
+        SAVE("uu", &v->rows, &v->cols);
         for (uint32_t i = 0; i < v->rows * v->cols; ++i)
             VIO__CHECK(vio_dump_val(v->vv[i], fp));
         break;
@@ -129,7 +149,7 @@ vio_err_t vio_dump_val(vio_val *v, FILE *fp) {
 vio_err_t vio_load_top(vio_ctx *ctx, FILE *fp) {
     vio_err_t err = 0;
     vio_val *v;
-    if ((err = vio_load_val(&v, fp)))
+    if ((err = vio_load_val(ctx, &v, fp)))
         return err;
     if (ctx->sp == VIO_STACK_SIZE)
         return VE_STACK_OVERFLOW;
@@ -137,8 +157,73 @@ vio_err_t vio_load_top(vio_ctx *ctx, FILE *fp) {
     return 0;
 }
 
-vio_err_t vio_load_val(vio_val **v, FILE *fp) {
+vio_err_t vio_load_val(vio_ctx *ctx, vio_val **out, FILE *fp) {
+    vio_err_t err = 0;
+    tpl_node *tn;
+    char *ns;
+    mp_exp_t ex;
+    int fd = fileno(fp);
+    vio_val_t what;
+    vio_val *v;
+    LOAD("u", &what);
+    VIO__CHECK(vio_val_new(ctx, &v, what));
+    switch (what) {
+    case vv_int: LOAD("I", &v->i32); break;
+    case vv_float: LOAD("f", &v->f32); break;
+    case vv_num:
+        LOAD("Us", &ex, &ns);
+        /* for some reason mpf_get_str and mpf_set_str use different formats */
+        mpf_init_set_str(v->n, ns, 10);
+        mpf_div_ui(v->n, v->n, (unsigned long)pow(10, ex));
+        free(ns);
+        break;
+    case vv_quot:
+        LOAD("uu", &v->def_idx, &v->jmp);
+        break;
+    case vv_parser:
+        break;
+    case vv_str:
+        LOADSTR(v, "", NULL);
+        break;
+    case vv_tagword: 
+        LOADSTR(v, "u", v->vlen);
+        for (uint32_t i = 0; i < v->vlen; ++i)
+            VIO__CHECK(vio_dump_val(v->vv[i], fp));
+        break;
+    case vv_vecf:
+        LOAD("u", &v->vlen);
+        v->vf32 = (vio_float *)malloc(sizeof(vio_float) * v->vlen);
+        VIO__ERRIF(v->vf32 == NULL, VE_ALLOC_FAIL);
+        LOAD("f#", v->vf32, v->vlen);
+        break;
+    case vv_matf:
+        LOAD("uu", &v->rows, &v->cols);
+        v->vf32 = (vio_float *)malloc(sizeof(vio_float) * v->rows * v->cols);
+        VIO__ERRIF(v->vf32 == NULL, VE_ALLOC_FAIL);
+        LOAD("f#", v->vf32, v->rows * v->cols);
+        break;
+    case vv_vec:
+        LOAD("u", &v->vlen);
+        v->vv = (vio_val **)malloc(sizeof(vio_val *) * v->vlen);
+        VIO__ERRIF(v->vv == NULL, VE_ALLOC_FAIL);
+        for (uint32_t i = 0; i < v->vlen; ++i)
+            VIO__CHECK(vio_load_val(ctx, v->vv + i, fp));
+        break;
+    case vv_mat:
+        LOAD("uu", &v->rows, &v->cols);
+        v->vv = (vio_val **)malloc(sizeof(vio_val *) * v->rows * v->cols);
+        VIO__ERRIF(v->vv == NULL, VE_ALLOC_FAIL);
+        for (uint32_t i = 0; i < v->rows * v->cols; ++i)
+            VIO__CHECK(vio_load_val(ctx, v->vv + i, fp));
+        break;
+    }
+
+    *out = v;
     return 0;
+
+    error:
+    if (v) free(v);
+    return err;
 }
 
 vio_err_t vio_dump_bytecode(vio_bytecode *bc, FILE *fp) {
@@ -148,15 +233,30 @@ vio_err_t vio_dump_bytecode(vio_bytecode *bc, FILE *fp) {
     SAVE("u", &bc->ic);
     for (uint32_t i = 0; i < bc->ic; ++i)
         vio_dump_val(bc->consts[i], fp);
-    SAVE("uU#", &bc->ip, bc->prog, bc->ip);
+    SAVE("u", &bc->ip);
+    SAVE("U#", bc->prog, bc->ip);
     return 0;
 
     error:
     return err;
 }
 
-vio_err_t vio_load_bytecode(vio_bytecode **bc, FILE *fp) {
+vio_err_t vio_load_bytecode(vio_ctx *ctx, vio_bytecode **bc, FILE *fp) {
+    vio_err_t err = 0; tpl_node *tn; int fd = fileno(fp);
+    uint32_t ic, ip;
+    LOAD("u", &ic);
+    VIO__CHECK(vio_bytecode_alloc(bc));
+    (*bc)->ic = ic;
+    VIO__CHECK(vio_bytecode_alloc_consts(*bc));
+    for (uint32_t i = 0; i < ic; ++i)
+        VIO__CHECK(vio_load_val(ctx, (*bc)->consts + i, fp));
+    LOAD("u", &ip);
+    (*bc)->ip = ip;
+    VIO__CHECK(vio_bytecode_alloc_opcodes(*bc));
+    LOAD("U#", (*bc)->prog, ip);
     return 0;
+    error:
+    return err;
 }
 
 struct savedata {
@@ -172,7 +272,8 @@ int save_def(void *data, const unsigned char *key, uint32_t klen, void *val) {
     uint32_t def_idx = (uint32_t)val - 1;
     tpl_node *tn;
     vio_bytecode *bc = ctx->defs[def_idx];
-    SAVE("u", &def_idx);
+    SAVE("u", &klen);
+    SAVE("c#u", (char *)key, klen, &def_idx);
     VIO__CHECK(vio_dump_bytecode(bc, sd->fp));
     return 0;
     error:
@@ -195,13 +296,40 @@ vio_err_t vio_dump_dict(vio_ctx *ctx, FILE *fp) {
     return err;
 }
 
-vio_err_t vio_load_dict(vio_ctx *ctx, FILE *fp) {
+vio_err_t load_def(vio_ctx *ctx, FILE *fp) {
+    vio_err_t err = 0; tpl_node *tn; int fd = fileno(fp);
+    char *name = NULL;
+    uint32_t nlen, def_idx;
+    LOAD("u", &nlen);
+    name = (char *)malloc(nlen);
+    VIO__ERRIF(name == NULL, VE_ALLOC_FAIL);
+    LOAD("c#u", name, nlen, &def_idx);
+    vio_dict_store(ctx->dict, name, nlen, def_idx);
+    vio_load_bytecode(ctx, ctx->defs + def_idx, fp);
+    free(name);
     return 0;
+    error:
+    if (name) free(name);
+    return err;
+}
+
+vio_err_t vio_load_dict(vio_ctx *ctx, FILE *fp) {
+    vio_err_t err = 0; tpl_node *tn; int fd = fileno(fp);
+    uint64_t dict_sz;
+    LOAD("U", &dict_sz);
+    for (uint64_t i = 0; i < dict_sz; ++i)
+        VIO__CHECK(load_def(ctx, fp));
+    return 0;
+    error:
+    return err;
 }
 
 vio_err_t vio_dump(vio_ctx *ctx, FILE *fp) {
     vio_err_t err = 0;
+    tpl_node *tn;
+    int fd = fileno(fp);
     VIO__CHECK(vio_dump_dict(ctx, fp));
+    SAVE("u", &ctx->sp);
     for (uint32_t i = 0; i < ctx->sp; ++i)
         VIO__CHECK(vio_dump_val(ctx->stack[i], fp));
     return 0;
@@ -210,5 +338,16 @@ vio_err_t vio_dump(vio_ctx *ctx, FILE *fp) {
 }
 
 vio_err_t vio_load(vio_ctx *ctx, FILE *fp) {
+    vio_err_t err = 0;
+    tpl_node *tn;
+    int fd = fileno(fp);
+    uint32_t cnt;
+    VIO__CHECK(vio_load_dict(ctx, fp));
+    LOAD("u", &cnt);
+    for (uint32_t i = 0; i < cnt; ++i)
+        VIO__CHECK(vio_load_top(ctx, fp));
+
     return 0;
+    error:
+    return err;
 }

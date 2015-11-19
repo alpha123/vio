@@ -26,11 +26,11 @@
     } \
     return 0;
 
-vio_err_t alloc_opcodes(vio_bytecode *bc) {
+vio_err_t vio_bytecode_alloc_opcodes(vio_bytecode *bc) {
     ALLOC_ENSURE(vio_opcode, bc->prog, bc->ip, bc->psz)
 }
 
-vio_err_t alloc_consts(vio_bytecode *bc) {
+vio_err_t vio_bytecode_alloc_consts(vio_bytecode *bc) {
     ALLOC_ENSURE(vio_val *, bc->consts, bc->ic, bc->csz)
 }
 
@@ -135,8 +135,8 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
     char *nulls = NULL;
     while (t) {
         imm1 = imm2 = imm3 = imm4 = 0;
-        VIO__CHECK(alloc_opcodes(bc));
-        VIO__CHECK(alloc_consts(bc));
+        VIO__CHECK(vio_bytecode_alloc_opcodes(bc));
+        VIO__CHECK(vio_bytecode_alloc_consts(bc));
         switch (t->what) {
         case vt_str:
             EMIT_CONST(vv_str) {
