@@ -2,11 +2,6 @@
 #define VIO_OPCODES_H
 
 #include <stdint.h>
-#ifdef USE_SYSTEM_LZ4
-#include <lz4.h>
-#else
-#include "lz4.h"
-#endif
 #include "attrib.h"
 
 typedef uint8_t vio_instruction_t;
