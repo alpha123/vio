@@ -16,15 +16,15 @@ LDFLAGS+=-Wl,-rpath=/usr/local/lib/gcc5
 ifeq ($(DEBUG),yes)
 	CFLAGS+=-g -ftree-vectorizer-verbose=2
 else
-	CFLAGS+=-O2
+	CFLAGS+=-O2 -DNDEBUG
 endif
 
 INCLUDE_DIRS=-I/usr/include -I/usr/local/include
 
 LIBS=-lm -lgmp -l$(BLAS_IMPL)
 
-VIO_SRCS=bytecode.c context.c dict.c error.c gc.c math.c opcodes.c parsercombinators.c repl.c rewrite.c serialize.c tok.c uneval.c val.c vm.c
-SRCS=$(VIO_SRCS) flag.c art.c mpc.c tpl.c
+VIO_SRCS=bytecode.c context.c dict.c error.c eval.c gc.c math.c opcodes.c parsercombinators.c repl.c rewrite.c serialize.c tok.c uneval.c val.c webrepl.c vm.c
+SRCS=$(VIO_SRCS) art.c flag.c json.c mpc.c tpl.c wby.c
 VIO_HEADERS=$(VIO_SRCS:.c=.h)
 VIO_HEADERS:=$(filter-out repl.h,$(VIO_HEADERS))
 
@@ -35,11 +35,7 @@ ifeq ($(ENABLE_SERVER),yes)
 	CFLAGS+=-DVIO_SERVER
 endif
 
-FETCH_DEPS=
 ifeq ($(ENABLE_WEBREPL),yes)
-ifeq ($(wildcard webrepl/jq-console/.),)
-	FETCH_DEPS+=fetch-webrepl
-endif
 	CFLAGS+=-DVIO_WEBREPL
 endif
 
@@ -72,7 +68,7 @@ endif
 OBJS=$(SRCS:.c=.o)
 IVIO=vio
 
-all: fetchdeps $(SRCS) $(IVIO)
+all: $(SRCS) $(IVIO)
 
 $(IVIO): $(OBJS)
 	$(CC) $(LDFLAGS) $(OBJS) -o $@ $(LIBS)
@@ -80,18 +76,11 @@ $(IVIO): $(OBJS)
 .c.o:
 	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
-fetchdeps: $(FETCH_DEPS)
-
-JQCONSOLE_UPSTREAM=https://github.com/replit/jq-console.git
-.PHONY: fetch-webrepl
-fetch-webrepl:
-	if [ -d "webrepl/jq-console" ]; then \
-		cd webrepl/jq-console && \
-		git pull $(JQCONSOLE_UPSTREAM) && \
-		cd ..; \
-	else \
-		git clone $(JQCONSOLE_UPSTREAM) webrepl/jq-console; \
-	fi
+.PHONY: webrepl
+webrepl:
+	cd webrepl && \
+	npm install && browserify -t [ babelify --presets [ react es2015 ] ] main.js -o bundle.js && \
+	cd ..
 
 .PHONY: doc
 doc:

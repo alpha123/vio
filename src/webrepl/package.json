@@ -1,0 +1,30 @@
+{
+  "name": "vio-webrepl",
+  "version": "1.0.0",
+  "description": "Web-based interactive environment for the Vio programming language.",
+  "main": "main.js",
+  "dependencies": {
+    "babel-preset-es2015": "^6.1.18",
+    "babelify": "^7.2.0",
+    "babel-preset-react": "^6.1.18",
+    "browserify": "^12.0.1",
+    "jq-console": "^2.13.1",
+    "react": "^0.14.3",
+    "react-dom": "^0.14.3",
+    "react-treeview": "^0.4.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alpha123/vio.git"
+  },
+  "author": "Peter Cannici",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/alpha123/vio/issues"
+  },
+  "homepage": "https://github.com/alpha123/vio#readme"
+}

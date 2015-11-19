@@ -1,9 +1,11 @@
 #include <math.h>
 #include <gmp.h>
 #include "art.h"
+#include "json.h"
 #include "mpc_private.h"
 #include "mpc.h"
 #include "tpl.h"
+#include "uneval.h"
 #include "serialize.h"
 
 vio_err_t vio_dump_top(vio_ctx *ctx, FILE *fp) {
@@ -350,4 +352,81 @@ vio_err_t vio_load(vio_ctx *ctx, FILE *fp) {
     return 0;
     error:
     return err;
+}
+
+void jsonify_val(JsonNode *n, vio_val *v) {
+    json_append_member(n, "what", json_mkstring(vio_val_type_name(v->what)));
+    const char *repr = vio_uneval_val(v);
+    char *s;
+    long ex;
+    JsonNode *m;
+    json_append_member(n, "repr", json_mkstring(repr));
+    free(repr);
+    switch (v->what) {
+    case vv_int:
+        json_append_member(n, "value", json_mknumber(v->i32));
+        break;
+    case vv_float:
+        json_append_member(n, "value", json_mknumber(v->f32));
+        break;
+    case vv_num:
+        s = mpf_get_str(NULL, &ex, 10, 0, v->n);
+        json_append_member(n, "value", json_mkstring(s));
+        json_append_member(n, "exp", json_mknumber(ex));
+        free(s);
+        break;
+    case vv_str:
+        s = (char *)malloc(v->len);
+        strncpy(s, v->s, v->len);
+        s[v->len-1] = '\0';
+        json_append_member(n, "value", json_mkstring(s));
+        free(s);
+        break;
+    case vv_vec:
+        json_append_member(n, "len", json_mknumber(v->vlen));
+        m = json_mkarray();
+        jsonify_vals(m, v->vv, v->vlen);
+        json_append_member(n, "values", m);
+        break;
+    case vv_mat:
+        json_append_member(n, "rows", json_mknumber(v->rows));
+        json_append_member(n, "cols", json_mknumber(v->cols));
+        m = json_mkarray();
+        jsonify_vals(m, v->vv, v->rows * v->cols);
+        json_append_member(n, "values", m);
+        break;
+    default: break;
+    }
+}
+
+void jsonify_vals(JsonNode *n, vio_val **vs, uint32_t cnt) {
+    for (uint32_t i = 0; i < cnt; ++i) {
+        JsonNode *m = json_mkobject(); /* gets deleted when n is freed */
+        jsonify_val(m, vs[i]);
+        json_append_element(n, m);
+    }
+}
+
+const char *vio_json_val(vio_val *v) {
+    JsonNode *n = json_mkobject();
+    jsonify_val(n, v);
+    const char *out = json_stringify(n, "\t");
+    json_delete(n);
+    return out;
+}
+const char *vio_json_vals(vio_val **vs, uint32_t cnt) {
+    JsonNode *n = json_mkarray();
+    jsonify_vals(n, vs, cnt);
+    const char *out = json_stringify(n, "\t");
+    json_delete(n);
+    return out;
+}
+
+const char *vio_json_top(vio_ctx *ctx) {
+    if (ctx->sp == 0) return NULL;
+    return vio_json_val(ctx->stack[ctx->sp-1]);
+}
+
+const char *vio_json_stack(vio_ctx *ctx) {
+    return vio_json_vals(ctx->stack, ctx->sp);
 }

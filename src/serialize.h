@@ -33,4 +33,9 @@ vio_err_t vio_load_bytecode(vio_ctx *ctx, vio_bytecode **bc, FILE *fp);
 vio_err_t vio_dump_dict(vio_ctx *ctx, FILE *fp);
 vio_err_t vio_load_dict(vio_ctx *ctx, FILE *fp);
 
+const char *vio_json_vals(vio_val **vs, uint32_t cnt);
+const char *vio_json_val(vio_val *v);
+const char *vio_json_top(vio_ctx *ctx);
+const char *vio_json_stack(vio_ctx *ctx);
+
 #endif

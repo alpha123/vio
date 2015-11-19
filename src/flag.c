@@ -217,8 +217,8 @@ flag_parse(int argc, const char **args, const char *version) {
   bool showVersion = false;
   bool showHelp = false;
 
-  flagset_bool(set, &showVersion, "v", "Show version.");
-  flagset_bool(set, &showHelp, "-help", "Show usage information.");
+  flagset_bool(set, &showVersion, "version", "Show version.");
+  flagset_bool(set, &showHelp, "help", "Show usage information.");
 
   flag_error err = flagset_parse(set, argc-1, args+1);
 

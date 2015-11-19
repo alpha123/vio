@@ -1106,9 +1106,9 @@ wby_con_is_websocket_request(struct wby_con* conn)
 {
     const char *hdr;
     if ((hdr = wby_find_header(conn, "Connection")) == NULL) return 0;
-    if (strcasecmp(hdr, "Upgrade")) return 0;
+    /*if (strcasecmp(hdr, "Upgrade")) return 0;*/
     if ((hdr = wby_find_header(conn, "Upgrade")) == NULL) return 0;
-    if (strcasecmp(hdr, "websocket")) return 0;
+    /*if (strcasecmp(hdr, "websocket")) return 0;*/
     return 1;
 }
 
