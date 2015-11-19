@@ -78,7 +78,7 @@ Other stuff:
 On the horizon:
 
 	-- Immediate-mode GUI
-	.xy[10 10] "Click me!" button [.xy[50 50] "Clicked" label] when
+	.xywh{10 10 30 8} "Click me!" button [.xy{50 10} "Clicked" label] when
 
 	-- Data visualization and whatever
 	11 iota 5 - [tanh] graph
@@ -88,45 +88,44 @@ On the horizon:
 Data Types
 ---------------
 
-	-- Strings
-	"spam"
+Strings  
+`"spam"`
 
-	-- Integers
-	42
+Integers  
+`42`
 	
-	-- Single-precision floats
-	-- Unlike most languages, you don't use floats for decimals most of the time.
-	-- They are only for writing performant code, since Vio can exploit the processor's vector units.
-	5.8f
+Single-precision floats  
+Unlike most languages, you don't use floats for decimals most of the time. They are only for writing performant code, since Vio can exploit the processor's vector units.  
+`5.8f`
 
-	-- Arbitrary-precision floats
-	3.22
+Arbitrary-precision floats  
+`3.22`
 
-	-- Tagwords
-	-- These are kind of like Ruby's symbols or Erlang's atoms, except they
-	-- can have values attached (sort of named vectors).
-	.foo
-	.bar{20}
-	-- You could pattern match on them, if I'd implemented that.
+Tagwords  
+These are kind of like Ruby's symbols or Erlang's atoms, except they can have values attached (sort of named vectors).  
+```
+.foo
+.bar{20}
+```
+You could pattern match on them, if I'd implemented that.
 
-	-- Vectors of all of the above
-	-- Row-major by default (todo: reconsider that?)
-	{7 20 433}
-	-- Can contain any of the above types, and may be heterogeneous
-	-- Homogeneous float vectors are optimized to GO FAST
+Vectors of all of the above  
+Row-major by default (todo: reconsider that?)
+`{7 20 433}`  
+Can contain any of the above types, and may be heterogeneous. Homogeneous float vectors are optimized to *GO FAST*.
 
-	-- Matrices
-	{{ 1 2 3 ; 2 4 6 ; 3 6 9 }}
-	-- idk how these work yet, cuz they don't
-	-- but eventually you'll be able to do useful vector-matrix and matrix-matrix things
+Matrices  
+`{{ 1 2 3 ; 2 4 6 ; 3 6 9 }}`  
+idk how these work yet, but eventually you'll be able to do useful vector-matrix and matrix-matrix things
 
-	-- Quotations
-	-- lambdas but without formal parameters, basically
-	[ 2 + ]
+Quotations  
+Basically lambdas but without formal parameters  
+`[ 2 + ]`
 
-	-- Parsers
-	-- yeah parsers are their own type of value
-	-- it's about as weird as it sounds, but you can do cool stuff
-	`foo`
-	digits: <d> +
-	float: <digits> ,`.` ,<digits>
+Parsers  
+Yeah parsers are their own type of value. It's about as weird as it sounds, but you can do cool stuff.  
+```
+`foo`
+digits: <d> +
+float: <digits> ,`.` ,<digits>
+```
