@@ -21,25 +21,32 @@ function prompt() {
 var StackView = React.createClass({
     displayName: 'StackView',
     getInitialState: function getInitialState() {
-        return { stack: [], collapsedNodes: [] };
+        return { stack: [], collapsedNodes: [[]] };
     },
-    handleClick: function handleClick(i) {
+    handleClick: function handleClick(i, level, parenti) {
         var _state$collapsedNodes = _toArray(this.state.collapsedNodes);
 
         var collapsedNodes = _state$collapsedNodes;
 
-        collapsedNodes[i] = !collapsedNodes[i];
+        collapsedNodes[i + level * parenti] = !collapsedNodes[i + level * parenti];
         this.setState({ collapsedNodes: collapsedNodes });
     },
     componentDidMount: function componentDidMount() {
         ws.onmessage = (function (evt) {
-            var vals = JSON.parse(evt.data);
-            term.Write(vals[vals.length - 1].repr + '\n', 'jqconsole-output');
-            this.setState({ stack: vals });
+            if (evt.data.indexOf("ERROR") == 0) {
+                term.Write(evt.data.slice(5) + '\n', 'jqconsole-output');
+                this.setState(this.state);
+            } else {
+                var vals = JSON.parse(evt.data);
+                term.Write(vals[vals.length - 1].repr + '\n', 'jqconsole-output');
+                this.setState({ stack: vals, collapsedNodes: Array(vals.length).join(0).split(0).map(function () {
+                        return false;
+                    }) });
+            }
             prompt();
         }).bind(this);
     },
-    valTreeView: function valTreeView(vals) {
+    valTreeView: function valTreeView(vals, level, parenti) {
         var _this = this;
 
         return vals.map(function (val, i) {
@@ -53,14 +60,14 @@ var StackView = React.createClass({
                 {
                     key: i,
                     nodeLabel: label,
-                    collapsed: _this.state.collapsedNodes[i],
-                    onClick: _this.handleClick.bind(_this, i) },
+                    collapsed: _this.state.collapsedNodes[i + level * parenti],
+                    onClick: _this.handleClick.bind(_this, i, level, parenti) },
                 React.createElement(
                     'div',
                     { className: 'info', key: val.repr },
                     val.repr
                 ),
-                val.values && val.values.length > 0 ? _this.valTreeView(val.values) : ""
+                val.values && val.values.length > 0 ? _this.valTreeView(val.values, level + 1, i) : ""
             ); // /
         });
     },
@@ -68,7 +75,7 @@ var StackView = React.createClass({
         return React.createElement(
             'div',
             null,
-            this.valTreeView(this.state.stack.reverse())
+            this.valTreeView(this.state.stack.slice(0).reverse(), 0, -1)
         ) // /
         ;
     }

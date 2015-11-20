@@ -16,39 +16,40 @@ function prompt() {
 
 const StackView = React.createClass({
     getInitialState() {
-        return {stack: [], collapsedNodes: []}
+        return {stack: [], collapsedNodes: [[]]}
     }
 
-,   handleClick(i) {
+,   handleClick(i, level, parenti) {
         let [...collapsedNodes] = this.state.collapsedNodes
-        collapsedNodes[i] = !collapsedNodes[i];
+        collapsedNodes[i + level * parenti] = !collapsedNodes[i + level * parenti];
         this.setState({collapsedNodes: collapsedNodes});
     }
 
 ,   componentDidMount() {
         ws.onmessage = function (evt) {
             if (evt.data.indexOf("ERROR") == 0) {
-                term.write(evt.data + '\n', 'jqconsole-output')
+                term.Write(evt.data.slice(5) + '\n', 'jqconsole-output')
+                this.setState(this.state)
             }
             else {
                 const vals = JSON.parse(evt.data)
                 term.Write(vals[vals.length - 1].repr + '\n', 'jqconsole-output')
-                this.setState({stack: vals})
+                this.setState({stack: vals, collapsedNodes: Array(vals.length).join(0).split(0).map(() => false)})
             }
             prompt()
         }.bind(this)
     }
 
-,   valTreeView(vals) {
+,   valTreeView(vals, level, parenti) {
         return vals.map((val, i) => {
             const label = <span className="node" onClick={this.handleClick.bind(this, i)}>{val.what}</span> // /
             return <TreeView
                 key={i}
                 nodeLabel={label}
-                collapsed={this.state.collapsedNodes[i]}
-                onClick={this.handleClick.bind(this, i)}>
+                collapsed={this.state.collapsedNodes[i + level * parenti]}
+                onClick={this.handleClick.bind(this, i, level, parenti)}>
                 <div className="info" key={val.repr}>{val.repr}</div>
-                {val.values && val.values.length > 0 ? this.valTreeView(val.values) : ""}
+                {val.values && val.values.length > 0 ? this.valTreeView(val.values, level + 1, i) : ""}
             </TreeView> // /
         })
     }
@@ -56,7 +57,7 @@ const StackView = React.createClass({
 ,   render() {
         return (
             <div>
-                {this.valTreeView(this.state.stack.reverse())}
+                {this.valTreeView(this.state.stack.slice(0).reverse(), 0, -1)}
             </div> // /
         )
     }
