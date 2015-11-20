@@ -18,6 +18,10 @@ function prompt() {
     term.Prompt(true, ws.send.bind(ws));
 }
 
+function getoffset(i, parenti, level) {
+    return i + Math.pow(2, parenti) + Math.pow(10, level);
+}
+
 var StackView = React.createClass({
     displayName: 'StackView',
     getInitialState: function getInitialState() {
@@ -27,8 +31,8 @@ var StackView = React.createClass({
         var _state$collapsedNodes = _toArray(this.state.collapsedNodes);
 
         var collapsedNodes = _state$collapsedNodes;
-
-        collapsedNodes[i + level * parenti] = !collapsedNodes[i + level * parenti];
+        var idx = getoffset(i, parenti, level);
+        collapsedNodes[idx] = !collapsedNodes[idx];
         this.setState({ collapsedNodes: collapsedNodes });
     },
     componentDidMount: function componentDidMount() {
@@ -60,7 +64,7 @@ var StackView = React.createClass({
                 {
                     key: i,
                     nodeLabel: label,
-                    collapsed: _this.state.collapsedNodes[i + level * parenti],
+                    collapsed: _this.state.collapsedNodes[getoffset(i, parenti, level)],
                     onClick: _this.handleClick.bind(_this, i, level, parenti) },
                 React.createElement(
                     'div',
@@ -75,7 +79,7 @@ var StackView = React.createClass({
         return React.createElement(
             'div',
             null,
-            this.valTreeView(this.state.stack.slice(0).reverse(), 0, -1)
+            this.valTreeView(this.state.stack.slice(0).reverse(), 0, 0)
         ) // /
         ;
     }
