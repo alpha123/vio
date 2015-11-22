@@ -1,18 +1,16 @@
 #ifndef VIO_SERVER_H
 #define VIO_SERVER_H
 
-#include "wby.h"
+#include "civetweb.h"
+
+#define VIO_MAX_WS_CLIENTS 5
 
 struct vio_server_state {
     vio_ctx *ctx;
-    int enable_webrepl;
-    struct wby_con *replclient;
+    struct mg_connection *replclients[VIO_MAX_WS_CLIENTS];
 };
 
-#ifdef VIO_WEBREPL
-void vio_server_start(int port, int repl);
-#else
 void vio_server_start(int port);
-#endif
+void vio_server_stop(void);
 
 #endif

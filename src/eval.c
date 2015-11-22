@@ -2,6 +2,7 @@
 #include "bytecode.h"
 #include "rewrite.h"
 #include "tok.h"
+#include "vm.h"
 #include "eval.h"
 
 vio_err_t vio_eval(vio_ctx *ctx, int64_t len, const char *expr) {

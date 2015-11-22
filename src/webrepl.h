@@ -3,9 +3,13 @@
 
 #include "server.h"
 
-int vio_webrepl_connect(struct wby_con *conn, void *st);
-void vio_webrepl_connected(struct wby_con *conn, void *st);
-int vio_webrepl_frame(struct wby_con *conn, const struct wby_frame *frame, void *st);
-void vio_webrepl_closed(struct wby_con *conn, void *st);
+int vio_webrepl_serve(struct mg_connection *conn, void *_cbdata);
+int vio_webrepl_serve_js(struct mg_connection *conn, void *_cbdata);
+int vio_webrepl_wsstart(struct mg_connection *conn, void *_cbdata);
+int vio_webrepl_wsconnect(const struct mg_connection *conn, void *_cbdata);
+void vio_webrepl_wsready(struct mg_connection *conn, void *_cbdata);
+int vio_webrepl_wsdata(struct mg_connection *conn, int bits, char *data,
+                       size_t len, void *_cbdata);
+void vio_webrepl_wsclose(const struct mg_connection *conn, void *_cbdata);
 
 #endif

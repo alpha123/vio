@@ -1,6 +1,5 @@
 DEBUG=yes
 ENABLE_SERVER=yes
-ENABLE_WEBREPL=yes
 
 USE_SYSTEM_LINENOISE=no
 USE_SYSTEM_LZF=no
@@ -24,19 +23,16 @@ INCLUDE_DIRS=-I/usr/include -I/usr/local/include
 LIBS=-lm -lgmp -l$(BLAS_IMPL)
 
 VIO_SRCS=bytecode.c context.c dict.c error.c eval.c gc.c math.c opcodes.c parsercombinators.c repl.c rewrite.c serialize.c tok.c uneval.c val.c webrepl.c vm.c
-SRCS=$(VIO_SRCS) art.c flag.c json.c mpc.c tpl.c wby.c
+SRCS=$(VIO_SRCS) art.c flag.c json.c mpc.c tpl.c civetweb.c
 VIO_HEADERS=$(VIO_SRCS:.c=.h)
 VIO_HEADERS:=$(filter-out repl.h,$(VIO_HEADERS))
+WEBREPL_SRCS=webrepl/index.html webrepl/main.js
 
 ifeq ($(ENABLE_SERVER),yes)
 	VIO_SRCS+=server.c
 	VIO_HEADERS+=server.h
-	LIBS+=-lmagic
-	CFLAGS+=-DVIO_SERVER
-endif
-
-ifeq ($(ENABLE_WEBREPL),yes)
-	CFLAGS+=-DVIO_WEBREPL
+	LIBS+=-lpthread
+	CFLAGS+=-DVIO_SERVER -DUSE_WEBSOCKET -DNO_SSL
 endif
 
 ifeq ($(USE_SYSTEM_LINENOISE),no)
@@ -76,11 +72,12 @@ $(IVIO): $(OBJS)
 .c.o:
 	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
-.PHONY: webrepl
-webrepl:
+webrepl: $(WEBREPL_SRCS)
 	cd webrepl && \
 	npm install && browserify -t [ babelify --presets [ react es2015 ] ] main.js -o bundle.js && \
-	cd ..
+	cd .. && \
+	xxd -i webrepl/index.html webrepl_html.i && \
+	xxd -i webrepl/bundle.js webrepl_js.i
 
 .PHONY: doc
 doc:

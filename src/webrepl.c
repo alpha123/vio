@@ -6,53 +6,74 @@
 #include "serialize.h"
 #include "webrepl.h"
 
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#include "webrepl_html.i"
+#include "webrepl_js.i"
 
-#define MAX_FRAME_PAYLOAD (2*1024)
+struct ctx_info {
+    char *image_file;
+    vio_ctx *ctx;
+};
 
-int vio_webrepl_connect(struct wby_con *conn, void *st) {
-    struct vio_server_state *s = (struct vio_server_state *)st;
-    conn->user_data = NULL;
-    /* 0 - connect, 1 - refuse */
-    if (s->enable_webrepl && strcmp(conn->request.uri, "/webrepl/socket") == 0)
-        return 0;
+int vio_webrepl_serve(struct mg_connection *conn, void *_cbdata) {
+    struct ctx_info *ci = (struct ctx_info *)malloc(sizeof(struct ctx_info));
+    /* strip leading / */
+    const char *image_file = mg_get_request_info(conn)->local_uri + 1;
+
+    ci->image_file = (char *)malloc(strlen(image_file));
+    strcpy(ci->image_file, image_file);
+
+    ci->ctx = (vio_ctx *)malloc(sizeof(vio_ctx));
+
+    if (vio_open_image(ci->ctx, image_file) == VE_IO_FAIL)
+        vio_open(ci->ctx);
+
+    mg_set_user_connection_data(conn, ci);
+
+    mg_printf(conn, "HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n");
+    mg_write(conn, webrepl_index_html, webrepl_index_html_len);
+
     return 1;
 }
 
-void vio_webrepl_connected(struct wby_con *conn, void *st) {
-    /* at the moment, we only support 1 websocket connection */
-    struct vio_server_state *s = (struct vio_server_state *)st;
-    s->replclient = conn;
+int vio_webrepl_serve_js(struct mg_connection *conn, void *_cbdata) {
+    mg_printf(conn, "HTTP/1.1 200 OK\r\nContent-type: application/javascriptr\n\r\n");
+    mg_write(conn, webrepl_bundle_js, webrepl_bundle_js_len);
+    return 1;
 }
 
-int vio_webrepl_frame(struct wby_con *conn, const struct wby_frame *frame, void *st) {
-    struct vio_server_state *s = (struct vio_server_state *)st;
-    char str[MAX_FRAME_PAYLOAD];
-    vio_err_t err = 0;
-    if (frame->payload_length > MAX_FRAME_PAYLOAD)
-        return 1;
-    if (wby_read(conn, str, frame->payload_length) != 0)
-        return 1;
+int vio_webrepl_wsstart(struct mg_connection *conn, void *_cbdata) {
+    mg_printf(conn, "HTTP/1.1 200 OK\r\nContent-type: text/plain\r\n\r\n");
+    return 1;
+}
 
-    wby_frame_begin(s->replclient, WBY_WSOP_TEXT_FRAME);
-    if ((err = vio_eval(s->ctx, frame->payload_length, str))) {
-        wby_write(s->replclient, "ERROR", 5);
-        wby_write(s->replclient, vio_err_msg(err), strlen(vio_err_msg(err)));
-        wby_write(s->replclient, "\n", 1);
-        wby_write(s->replclient, s->ctx->err_msg, strlen(s->ctx->err_msg));
-    }
-    else {
-        const char *jsrepr = vio_json_stack(s->ctx);
-        wby_write(s->replclient, jsrepr, strlen(jsrepr));
-        free((char *)jsrepr);
-    }
-    wby_frame_end(s->replclient);
+int vio_webrepl_wsconnect(const struct mg_connection *conn, void *_cbdata) {
     return 0;
 }
 
-void vio_webrepl_closed(struct wby_con *conn, void *st) {
-    struct vio_server_state *s = (struct vio_server_state *)st;
-    FILE *img = fopen("webrepl.vio", "wb");
-    vio_dump(s->ctx, img);
-    fclose(img);
+void vio_webrepl_wsready(struct mg_connection *conn, void *_cbdata) {
+}
+
+int vio_webrepl_wsdata(struct mg_connection *conn, int bits, char *data,
+                       size_t len, void *_cbdata) {
+    struct ctx_info *ci = mg_get_user_connection_data(conn);
+    vio_err_t err = vio_eval(ci->ctx, len, data);
+    char err_msg[255];
+    if (err) {
+        snprintf(err_msg, 255, "ERROR\n%.80s\n%.170s", vio_err_msg(err), ci->ctx->err_msg);
+        mg_websocket_write(conn, WEBSOCKET_OPCODE_TEXT, err_msg, strlen(err_msg));
+    }
+    else {
+        const char *s = vio_json_stack(ci->ctx);
+        mg_websocket_write(conn, WEBSOCKET_OPCODE_TEXT, s, strlen(s));
+        free((char *)s); /* this however is not */
+    }
+    return 1;
+}
+
+void vio_webrepl_wsclose(const struct mg_connection *conn, void *_cbdata) {
+    struct ctx_info *ci = mg_get_user_connection_data(conn);
+    vio_close_image(ci->ctx, ci->image_file);
+    free(ci->image_file);
+    free(ci->ctx);
+    free(ci);
 }

@@ -55,7 +55,7 @@ vio_err_t vio_bytecode_alloc(vio_bytecode **out) {
     bc->consts[bc->ic++] = v; \
     EMIT_OPCODE(vop_load);
 
-enum end_cond { end_eof, end_defend };
+enum end_cond { end_eof, end_defend, end_quotend };
 
 vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final, enum end_cond stop_at);
 
@@ -73,6 +73,39 @@ vio_err_t emit_definition(vio_ctx *ctx, const char *name, uint32_t nlen, vio_tok
 
     error:
     if (fn) vio_bytecode_free(fn);
+    return err;
+}
+
+vio_err_t emit_quot(vio_ctx *ctx, vio_tok **start, vio_bytecode *bc) {
+    vio_err_t err = 0;
+    vio_opcode jmp;
+    vio_val *v;
+    uint32_t imm1 = 0, prev, last, our_def;
+    uint8_t imm2 = 0, imm3 = 0, imm4 = 0;
+
+    prev = bc->ip;
+    our_def = ctx->defp;
+    VIO__CHECK(emit(ctx, start, bc, vop_retq, end_quotend));
+    imm1 = bc->ip - prev;
+    EMIT_OPCODE(vop_reljmp);
+
+    /* The relative jump should go at the beginning of the definition, but
+       we don't know how many to jump until we've compiled the rest.
+       Move every instruction by one and then put the jump at the beginning. */
+    last = bc->ip;
+    jmp = bc->prog[--bc->ip];
+    while (bc->ip-- > prev)
+        bc->prog[bc->ip+1] = bc->prog[bc->ip];
+    bc->prog[prev] = jmp;
+    bc->ip = last;
+
+    EMIT_CONST(vv_quot) {
+        v->jmp = prev + 1;
+        v->def_idx = our_def;
+    }
+
+    return 0;
+    error:
     return err;
 }
 
@@ -101,10 +134,8 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
             EMIT_OPCODE(vop_vec);
         break;
     case 4:
-        if (strncmp(t->s, "eval", 4) == 0) {
-            imm2 = 2;
-            EMIT_OPCODE(vop_call);
-        }
+        if (strncmp(t->s, "eval", 4) == 0)
+            EMIT_OPCODE(vop_callq);
         else if (strncmp(t->s, "swap", 4) == 0)
             EMIT_OPCODE(vop_swap);
         else if (strncmp(t->s, "vecf", 4) == 0)
@@ -119,7 +150,10 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
     }
 }
 
-#define is_def_end(t) ((t) && (t)->what == vt_word && (t)->len == 1 && (t)->s[0] == ';')
+#define is_short_word(t,c) ((t) && (t)->what == vt_word && (t)->len == 1 && (t)->s[0] == (c))
+#define is_def_end(t) is_short_word(t, ';')
+#define is_quot_start(t) is_short_word(t, '[')
+#define is_quot_end(t) is_short_word(t, ']')
 
 vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final, enum end_cond stop_at) {
     vio_err_t err = 0;
@@ -168,11 +202,17 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
             break;
         case vt_word:
             /* try, in order:
+               - quotation
                - if the word ends with :, it is a definition
                - if it's a built-in word, emit the specific instruction for it
                - if we've seen its definition, emit a direct call to its address
                - otherwise emit an indirect call to its name */
-            if (t->s[t->len-1] == ':' && t->len > 1) {
+            if (is_quot_start(t)) {
+                VIO__ERRIF(t->next == NULL, VE_UNCLOSED_QUOT);
+                t = t->next;
+                emit_quot(ctx, &t, bc);
+            }
+            else if (t->s[t->len-1] == ':' && t->len > 1) {
                 char *name = t->s;
                 uint32_t nlen = t->len - 1;
                 t = t->next; /* start with the first token of the definition,
@@ -213,6 +253,10 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
             *begin = t;
             t = NULL;
         }
+        else if (stop_at == end_quotend && is_quot_end(t)) {
+            *begin = t;
+            t = NULL;
+        }
     }
     imm1 = imm2 = imm3 = imm4 = 0;
     EMIT_OPCODE(final);
@@ -237,7 +281,10 @@ vio_err_t vio_emit(vio_ctx *ctx, vio_tok *t, vio_bytecode **out) {
 
 void vio_bytecode_free(vio_bytecode *bc) {
     free(bc->prog);
-    /* don't free our constants! they're (possibly) referenced on the stack
-       and will be gced if they aren't */
+    /* consts are copied before pushed onto the stack and not garbage collected
+       (which would run into problems with quotations). */
+    for (uint32_t i = 0; i < bc->ic; ++i)
+        vio_val_free(bc->consts[i]);
+    free(bc->consts);
     free(bc);
 }

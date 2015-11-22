@@ -123,9 +123,11 @@ op_load:
 op_callq:
     if (EC(address_sp) - EC(ap_base) >= VIO_MAX_CALL_DEPTH)
         EXIT(VE_EXCEEDED_MAX_CALL_DEPTH);
-    *EC(address_sp)++ = EC(pc) + 1;
     SAFE_POP(v)
     EXPECT(v, vv_quot)
+    if (v->def_idx)
+        PUSH_EXEC_CONTEXT(ctx->defs[v->def_idx]);
+    *EC(address_sp)++ = EC(pc) + 1;
     EC(pc) = v->jmp;
     NEXT;
 op_call: {

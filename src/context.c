@@ -34,6 +34,8 @@ void vio_close(vio_ctx *ctx) {
         v = n;
     }
     vio_dict_close(ctx->dict);
+    for (uint32_t i = 0; i < ctx->defp; ++i)
+        vio_bytecode_free(ctx->defs[i]);
     free(ctx->defs);
 }
 
