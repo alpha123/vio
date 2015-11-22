@@ -9,7 +9,7 @@
  * Singleton like a boss.
  */
 
-static flagset_t *set = NULL;
+static flagset_t *OPTIONS = NULL;
 
 /*
  * Parsing error.
@@ -61,8 +61,8 @@ static flagset_t *set = NULL;
   } \
   void \
   flag_##NAME(TYPE *value, const char *name, const char *help) { \
-    if (set == NULL) set = flagset_new(); \
-    flagset_##NAME(set, value, name, help); \
+    if (OPTIONS == NULL) OPTIONS = flagset_new(); \
+    flagset_##NAME(OPTIONS, value, name, help); \
   }
 
 /*
@@ -75,16 +75,16 @@ is_flag(const char *s) {
 }
 
 /*
- * Check for --no- prefix.
+ * Check for -no- prefix.
  */
 
 static inline bool
 is_negated(const char *s) {
-  return strncmp(s, "--no-", 5) == 0;
+  return strncmp(s, "-no-", 5) == 0;
 }
 
 /*
- * Largest flag name in the set.
+ * Largest flag name in the OPTIONS.
  */
 
 static int
@@ -217,22 +217,22 @@ flag_parse(int argc, const char **args, const char *version) {
   bool showVersion = false;
   bool showHelp = false;
 
-  flagset_bool(set, &showVersion, "version", "Show version.");
-  flagset_bool(set, &showHelp, "help", "Show usage information.");
+  flagset_bool(OPTIONS, &showVersion, "version", "Show version.");
+  flagset_bool(OPTIONS, &showHelp, "help", "Show usage information.");
 
-  flag_error err = flagset_parse(set, argc-1, args+1);
+  flag_error err = flagset_parse(OPTIONS, argc-1, args+1);
 
   switch (err) {
     case FLAG_ERROR_PARSING:
-      fprintf(stderr, "invalid value for -%s\n", set->error.flag->name);
+      fprintf(stderr, "invalid value for -%s\n", OPTIONS->error.flag->name);
       exit(1);
       break;
     case FLAG_ERROR_ARG_MISSING:
-      fprintf(stderr, "missing value for -%s\n", set->error.flag->name);
+      fprintf(stderr, "missing value for -%s\n", OPTIONS->error.flag->name);
       exit(1);
       break;
     case FLAG_ERROR_UNDEFINED_FLAG:
-      fprintf(stderr, "undefined flag %s\n", set->error.arg);
+      fprintf(stderr, "unknown option %s\n", OPTIONS->error.arg);
       exit(1);
       break;
     case FLAG_OK:
@@ -240,7 +240,7 @@ flag_parse(int argc, const char **args, const char *version) {
   }
 
   if (showHelp) {
-    flagset_write_usage(set, stdout, name);
+    flagset_write_usage(OPTIONS, stdout, name);
     exit(0);
   }
 

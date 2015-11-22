@@ -14,4 +14,22 @@ vio_err_t vio_sub(vio_ctx *ctx);
 vio_err_t vio_mul(vio_ctx *ctx);
 vio_err_t vio_div(vio_ctx *ctx);
 
+#define LIST_MATH_UNARY(X) \
+    X(log) \
+    X(log10) \
+    X(sqrt) \
+    X(sin) \
+    X(cos) \
+    X(tan) \
+    X(asin) \
+    X(acos) \
+    X(atan) \
+    X(sinh) \
+    X(cosh) \
+    X(tanh)
+
+#define DEFUN(f) vio_err_t vio_##f(vio_ctx *ctx);
+LIST_MATH_UNARY(DEFUN)
+#undef DEFUN
+
 #endif

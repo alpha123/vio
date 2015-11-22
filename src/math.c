@@ -102,88 +102,7 @@ OP_IMPL(sub)
     AUTO_VECTORIZE(sub)
 END_OP(sub)
 
-vio_err_t generic_mul(vio_ctx *ctx, vio_val *a, vio_val *b) {
-  vio_err_t err = 0;
-  vio_val *va, *vb;
-  if (a->what == vv_str || b->what == vv_str || a->what == vv_quot ||
-      b->what == vv_quot || a->what == vv_tagword || b->what == vv_tagword) {
-    err = vio_raise(ctx, VE_WRONG_TYPE, "Function '" "mul" "' expects numeric types or vectors; received '%s' and '%s' operands.",
-        vio_val_type_name(a->what), vio_val_type_name(b->what));
-    goto error;
-  }
-  if (b->what == vv_vecf && a->what == vv_float) {
-    va = a;
-    a = b;
-    b = va;
-  }
-  if (a->what == vv_vecf && b->what == vv_float) {
-    cblas_dscal(a->vlen, b->f32, a->vf32, 1);
-    if ((err = (vio_push_vecf32(ctx, a->vlen, a->vf32))))
-      goto error;
-  } else if (a->what == vv_vecf && b->what == vv_vecf && a->vlen == b->vlen) {
-    for (uint32_t i = 0; i < a->vlen; ++i)
-      a->vf32[i] *= b->vf32[i];
-    if ((err = (vio_push_vecf32(ctx, a->vlen, a->vf32))))
-      goto error;
-  } else if (vio_is_numeric_type((a)->what) && vio_is_numeric_type((b)->what)) {
-    if ((err = (vio_coerce(ctx, b, &vb, a->what))))
-      goto error;
-    if (vb == NULL) {
-      if ((err = (vio_coerce(ctx, a, &va, b->what))))
-        goto error;
-      if (va == NULL) {
-        err = VE_NUMERIC_CONVERSION_FAIL;
-        goto error;
-      }
-      a = b;
-      b = va;
-    } else
-      b = vb;
-    switch (a->what) {
-    case vv_int:
-      if ((err = (vio_push_int(ctx, b->i32 * a->i32))))
-        goto error;
-      break;
-    case vv_float:
-      if ((err = (vio_push_float(ctx, b->f32 * a->f32))))
-        goto error;
-      break;
-    case vv_num: {
-      mpf_t c;
-      __gmpf_init(c);
-      __gmpf_mul(c, b->n, a->n);
-      if ((err = (vio_push_num(ctx, c))))
-        goto error;
-      break;
-    }
-    default:
-      err = VE_WRONG_TYPE;
-      goto error;
-    }
-  }
-
-  else if ((err = (vio_coerce(ctx, a, &va, vv_vec))))
-    goto error;
-  else if ((err = (vio_coerce(ctx, b, &vb, vv_vec))))
-    goto error;
-  else if (va && vb) {
-    uint32_t maxl = vmaxui(va->vlen, vb->vlen);
-    for (uint32_t i = 0; i < maxl; ++i)
-      if ((err =
-               (generic_mul(ctx, va->vv[i % va->vlen], vb->vv[i % vb->vlen]))))
-        goto error;
-    if ((err = (vio_push_vec(ctx, maxl))))
-      goto error;
-  }
-  return err;
-error:
-  if (ctx->err == 0)
-    strcpy(ctx->err_msg, "Unexpected math.");
-  ctx->err = err;
-  return err;
-}
-
-/*OP_IMPL(mul)
+OP_IMPL(mul)
     if (b->what == vv_vecf && a->what == vv_float) {
         va = a;
         a = b;
@@ -200,8 +119,7 @@ error:
     DONE_VECF
     STANDARD_NUMERIC(*, mul)
     AUTO_VECTORIZE(mul)
-    DONE_VEC
-END_OP(mul)*/
+END_OP(mul)
 
 OP_IMPL(div)
     if (b->what == vv_vecf && a->what == vv_float) {
@@ -238,3 +156,17 @@ BIN_OP(add)
 BIN_OP(sub)
 BIN_OP(mul)
 BIN_OP(div)
+
+#define UN_IMPL(f) \
+    vio_err_t vio_##f(vio_ctx *ctx) { \
+        vio_err_t err = 0; \
+        vio_float x, y; \
+        VIO__CHECK(vio_pop_float(ctx, &x)); \
+        y = f(x); \
+        VIO__CHECK(vio_push_float(ctx, y)); \
+        return 0; \
+        error: \
+        return err; \
+    }
+
+LIST_MATH_UNARY(UN_IMPL)

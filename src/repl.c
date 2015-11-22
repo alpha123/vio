@@ -15,6 +15,7 @@
 #include "rewrite.h"
 #include "serialize.h"
 #include "server.h"
+#include "stdvio.h"
 #include "tok.h"
 #include "uneval.h"
 #include "val.h"
@@ -73,6 +74,7 @@ int main(int argc, const char **argv) {
     vio_err_t err = 0;
     vio_ctx ctx;
     vio_open(&ctx);
+    vio_load_stdlib(&ctx);
 
     vio_bytecode *bc;
     vio_tok *t, *tt;

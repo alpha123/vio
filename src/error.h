@@ -5,6 +5,7 @@
 
 #define LIST_ERRORS(_X, X, X_) \
     _X(VE_ALLOC_FAIL, "Fatal: unable to allocate memory.") \
+    X(VE_GENERIC_ERROR, "program is kill") \
 \
     X(VE_TOKENIZER_INVALID_STATE, "Bizarre internal error: tokenizer entered invalid state.") \
     X(VE_TOKENIZER_BAD_ESCAPE_SEQUENCE, "Syntax error: bad escape sequence in string.") \
@@ -55,13 +56,12 @@ const char *vio_err_msg(vio_err_t err);
 
 /* not really intended for public use */
 #define VIO__CHECK(expr) do{ if ((err = (expr))) goto error; }while(0)
-#define VIO__ERRIF(expr, errcode) VIO__CHECK((expr) ? errcode : 0)
+#define VIO__ERRIF(expr, errcode) VIO__CHECK((expr) ? (errcode) : 0)
+#define VIO__RAISEIF(expr, errcode, ...) \
+    VIO__CHECK((expr) ? vio_raise(ctx, (errcode), __VA_ARGS__) : 0)
 #define VIO__ENSURE_ATLEAST(n) \
-    if (ctx->sp < n) { \
-        err = vio_raise(ctx, VE_STACK_EMPTY, "Function requires at least " \
-                        #n " operands, stack only has %d items.", ctx->sp); \
-        goto error; \
-    }
-
+    VIO__RAISEIF(ctx->sp < (n), VE_STACK_EMPTY, \
+         "Function requires at least " #n " operands, " \
+         "but the stack only has %d items.", ctx->sp);
 
 #endif
