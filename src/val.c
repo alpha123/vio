@@ -127,6 +127,23 @@ vio_err_t vio_vec(vio_ctx *ctx, vio_val **out, uint32_t vlen, ...) {
     return err;
 }
 
+vio_err_t vio_string(vio_ctx *ctx, vio_val **out, uint32_t len, const char *str) {
+    vio_err_t err = 0;
+
+    VIO__CHECK(vio_val_new(ctx, out, vv_str));
+    (*out)->len = len;
+    (*out)->s = (char *)malloc(len);
+    VIO__ERRIF((*out)->s == NULL, VE_ALLOC_FAIL);
+    memcpy((*out)->s, str, len);
+
+    error:
+    return err;
+}
+
+vio_err_t vio_string0(vio_ctx *ctx, vio_val **out, const char *str) {
+    return vio_string(ctx, out, strlen(str), str);
+}
+
 void vio_mark_val(vio_val *v) {
     if (v->mark)
         return;

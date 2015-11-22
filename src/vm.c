@@ -1,6 +1,9 @@
+#include "art.h"
 #include "math.h"
 #include "parsercombinators.h"
 #include "gc.h"
+#include "strings.h"
+#include "types.h"
 #include "vm.h"
 
 /* return NULL if the stack is empty */
@@ -139,6 +142,17 @@ op_call: {
     fn = ctx->defs[idx];
     PUSH_EXEC_CONTEXT(fn);
     NEXT;
+}
+op_callc: {
+    vio_function fn;
+    SAFE_POP(v)
+    EXPECT(v, vv_str)
+    fn = (vio_function)art_search(ctx->cdict,
+                                    (const unsigned char *)v->s, v->len);
+    if (fn == NULL)
+        RAISE(VE_CALL_TO_UNDEFINED_WORD, "If you're seeing this, something very strange happened.");
+    CHECK(fn(ctx));
+    NEXT_MAYBEGC;
 }
 op_retq:
     POP_EXEC_CONTEXT();

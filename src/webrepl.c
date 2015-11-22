@@ -4,6 +4,7 @@
 #include "uneval.h"
 #include "server.h"
 #include "serialize.h"
+#include "stdvio.h"
 #include "webrepl.h"
 
 #include "webrepl_html.i"
@@ -26,6 +27,7 @@ int vio_webrepl_serve(struct mg_connection *conn, void *_cbdata) {
 
     if (vio_open_image(ci->ctx, image_file) == VE_IO_FAIL)
         vio_open(ci->ctx);
+    vio_load_stdlib(ci->ctx);
 
     mg_set_user_connection_data(conn, ci);
 

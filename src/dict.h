@@ -7,9 +7,8 @@
 #include "art.h"
 #include "error.h"
 
-/* Map a word name to an integer index.
-   In the VM, function calls are really just jumps,
-   and this is used to store the jump location. */
+/* Map a word name to an integer index in an
+   array of bytecode objects. */
 
 typedef struct _vdict {
     art_tree words;

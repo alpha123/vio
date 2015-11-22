@@ -11,7 +11,8 @@ vio_err_t vio_open(vio_ctx *ctx) {
     VIO__ERRIF((ctx->defs = (vio_bytecode **)malloc(
         sizeof(vio_bytecode *) * VIO_MAX_FUNCTIONS)) == NULL, VE_ALLOC_FAIL);
     VIO__ERRIF((ctx->dict = (vio_dict *)malloc(sizeof(vio_dict))) == NULL, VE_ALLOC_FAIL);
-    vio_dict_open(ctx->dict);
+    VIO__CHECK(vio_dict_open(ctx->dict));
+    VIO__ERRIF(art_tree_init(ctx->cdict) != 0, VE_DICTIONARY_ALLOC_FAIL);
     return 0;
 
     error:
@@ -34,6 +35,7 @@ void vio_close(vio_ctx *ctx) {
         v = n;
     }
     vio_dict_close(ctx->dict);
+    art_tree_destroy(ctx->cdict);
     for (uint32_t i = 0; i < ctx->defp; ++i)
         vio_bytecode_free(ctx->defs[i]);
     free(ctx->defs);
@@ -47,6 +49,10 @@ vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {
 
     ctx->err = err;
     return err;
+}
+
+void vio_register(vio_ctx *ctx, const char *name, vio_function fn) {
+    art_insert(ctx->cdict, (const unsigned char *)name, strlen(name), fn);
 }
 
 int vio_what(vio_ctx *ctx) {
@@ -300,7 +306,7 @@ vio_err_t vio_push_str(vio_ctx *ctx, uint32_t len, char *val) {
         err = VE_ALLOC_FAIL;
         goto error;
     }
-    strncpy(v->s, val, len);
+    memcpy(v->s, val, len);
     return 0;
 
     HANDLE_ERRORS

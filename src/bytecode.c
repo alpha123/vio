@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include "art.h"
 #include "bytecode.h"
 #define DEFAULT_OPCODE_BUFSIZE 1024
 #define DEFAULT_CONST_BUFSIZE 512
@@ -78,7 +79,6 @@ vio_err_t emit_definition(vio_ctx *ctx, const char *name, uint32_t nlen, vio_tok
 
 vio_err_t emit_quot(vio_ctx *ctx, vio_tok **start, vio_bytecode *bc) {
     vio_err_t err = 0;
-    vio_opcode jmp;
     vio_val *v;
     vio_bytecode *fn;
     uint32_t imm1 = 0;
@@ -192,6 +192,7 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
                - quotation
                - if the word ends with :, it is a definition
                - if it's a built-in word, emit the specific instruction for it
+               - if it's a registered C function, emit the callc instruction
                - if we've seen its definition, emit a direct call to its address
                - otherwise emit an indirect call to its name */
             if (is_quot_start(t)) {
@@ -220,7 +221,11 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
                         }
                         imm2 = 2;
                     }
-                    EMIT_OPCODE(vop_call);
+                    if (art_search(ctx->cdict, (const unsigned char *)t->s,
+                                   t->len) && imm2 != 1)
+                        EMIT_OPCODE(vop_callc);
+                    else
+                        EMIT_OPCODE(vop_call);
                 }
                 /* otherwise do nothing since emit_builtin did all the work */
             }
