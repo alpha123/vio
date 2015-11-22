@@ -24,7 +24,7 @@ char *vio_uneval_val(vio_val *v) {
     case vv_float:
         out = (char *)malloc(20); /* 16 + dot + sign + e + null */
         if (out == NULL) goto die;
-        snprintf(out, 20, "%16g", v->f32);
+        snprintf(out, 20, "%gf", v->f32);
         break;
     case vv_num:
         out = (char *)malloc(gmp_snprintf(NULL, 0, "%Ff", v->n) + 1);
