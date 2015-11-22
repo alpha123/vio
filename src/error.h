@@ -5,6 +5,7 @@
 
 #define LIST_ERRORS(_X, X, X_) \
     _X(VE_ALLOC_FAIL, "Fatal: unable to allocate memory.") \
+    X(VE_GENERIC_ERROR, "program is kill") \
 \
     X(VE_TOKENIZER_INVALID_STATE, "Bizarre internal error: tokenizer entered invalid state.") \
     X(VE_TOKENIZER_BAD_ESCAPE_SEQUENCE, "Syntax error: bad escape sequence in string.") \

@@ -29,11 +29,17 @@ struct _vctx {
     vio_bytecode **defs;
     uint32_t defp; /* next index in `defs` */
     vio_dict *dict; /* maps function names to indices in `defs` */
-    art_tree *cdict; /* registered c functions */
+    art_tree *cdict; /* registered C functions */
 
     vio_err_t err;
     char err_msg[VIO_MAX_ERR_LEN];
 };
+
+typedef struct _vfninfo {
+    vio_function fn;
+    int arity;
+    uint32_t ret_cnt;
+} vio_function_info;
 
 vio_err_t vio_open(vio_ctx *ctx);
 void vio_close(vio_ctx *ctx);
@@ -50,7 +56,7 @@ vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...);
    @returns either 0 or an int that can safely be cast to a vio_val_t */
 int vio_what(vio_ctx *ctx);
 
-void vio_register(vio_ctx *ctx, const char *name, vio_function fn);
+void vio_register(vio_ctx *ctx, const char *name, vio_function fn, int arity);
 
 vio_err_t vio_pop_str(vio_ctx *ctx, uint32_t *len, char **out);
 vio_err_t vio_pop_int(vio_ctx *ctx, vio_int *out);

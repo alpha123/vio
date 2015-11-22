@@ -144,14 +144,87 @@ op_call: {
     NEXT;
 }
 op_callc: {
-    vio_function fn;
+    vio_function_info *fi;
+    vio_val *a, *b, *vout, *w;
     SAFE_POP(v)
     EXPECT(v, vv_str)
-    fn = (vio_function)art_search(ctx->cdict,
+    fi = (vio_function_info *)art_search(ctx->cdict,
                                     (const unsigned char *)v->s, v->len);
-    if (fn == NULL)
+    if (fi == NULL)
         RAISE(VE_CALL_TO_UNDEFINED_WORD, "If you're seeing this, something very strange happened.");
-    CHECK(fn(ctx));
+    /* Auto-vectorize functions of arity 1 and 2 */
+    if (fi->arity == 1) {
+        SAFE_POP(a)
+        if (a->what == vv_vec) {
+            CHECK(vio_vec(ctx, &vout, a->vlen * fi->ret_cnt, NULL));
+            for (uint32_t i = 0; i < a->vlen; ++i) {
+                SAFE_PUSH(a->vv[i])
+                CHECK(fi->fn(ctx));
+                for (uint32_t j = 0; j < fi->ret_cnt; ++j) {
+                    SAFE_POP(w)
+                    vout->vv[i * fi->ret_cnt + j] = w;
+                }
+            }
+            SAFE_PUSH(vout)
+        }
+        else {
+            SAFE_PUSH(a)
+            CHECK(fi->fn(ctx));
+        }
+    }
+    else if (fi->arity == 2) {
+        SAFE_POP(a)
+        SAFE_POP(b)
+        if (a->what == vv_vec && b->what == vv_vec) {
+            uint32_t len = a->vlen > b->vlen ? a->vlen : b->vlen;
+            CHECK(vio_vec(ctx, &vout, len * fi->ret_cnt, NULL));
+            for (uint32_t i = 0; i < len; ++i) {
+                SAFE_PUSH(b->vv[i % b->vlen])
+                SAFE_PUSH(a->vv[i % a->vlen])
+                CHECK(fi->fn(ctx));
+                for (uint32_t j = 0; j < fi->ret_cnt; ++j) {
+                    SAFE_POP(w)
+                    vout->vv[i * fi->ret_cnt + j] = w;
+                }
+            }
+            SAFE_PUSH(vout)
+        }
+        else {
+            int swapped = 0;
+            if (b->what == vv_vec) {
+                w = b;
+                b = a;
+                a = w;
+                swapped = 1;
+            }
+            if (a->what == vv_vec) {
+                CHECK(vio_vec(ctx, &vout, a->vlen * fi->ret_cnt, NULL));
+                for (uint32_t i = 0; i < a->vlen; ++i) {
+                    if (swapped) {
+                        SAFE_PUSH(a->vv[i])
+                        SAFE_PUSH(b)
+                    }
+                    else {
+                        SAFE_PUSH(b)
+                        SAFE_PUSH(a->vv[i])
+                    }
+                    CHECK(fi->fn(ctx));
+                    for (uint32_t j = 0; j < fi->ret_cnt; ++j) {
+                        SAFE_POP(w)
+                        vout->vv[i * fi->ret_cnt + j] = w;
+                    }
+                }
+                SAFE_PUSH(vout)
+            }
+            else {
+                SAFE_PUSH(b)
+                SAFE_PUSH(a)
+                CHECK(fi->fn(ctx));
+            }
+        }
+    }
+    else
+        CHECK(fi->fn(ctx));
     NEXT_MAYBEGC;
 }
 op_retq:
