@@ -9,6 +9,15 @@ Vio is an experimental new programming language designed to be fun to use. Its g
 
 ***At the moment, Vio is very new. This document is as much of a design document as it is actual documentation.***
 
+Features:
+
+- Many useful built-in functions
+- A nifty REPL web application
+- Ability to load/save VM images (snapshots of the virtual machine state)
+- Simple implementation (~2k semicolons)
+- Not terribly slow
+- Few dependencies
+
 Getting Vio
 ----------------
 
