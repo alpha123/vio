@@ -74,6 +74,59 @@ void vio_val_free(vio_val *v) {
     free(v);
 }
 
+vio_err_t vio_tagword(vio_ctx *ctx, vio_val **out, const char *name, uint32_t vlen, ...) {
+    vio_err_t err = 0;
+    va_list ap;
+    va_start(ap, vlen);
+
+    *out = NULL;
+
+    VIO__CHECK(vio_val_new(ctx, out, vv_tagword));
+
+    (*out)->len = strlen(name);
+    (*out)->s = (char *)malloc((*out)->len);
+    VIO__ERRIF((*out)->s == NULL, VE_ALLOC_FAIL);
+    strncpy((*out)->s, name, (*out)->len);
+
+    (*out)->vlen = vlen;
+    (*out)->vv = (vio_val **)malloc(sizeof(vio_val *) * vlen);
+    for (uint32_t i = 0; i < vlen; ++i)
+        (*out)->vv[i] = va_arg(ap, vio_val *);
+
+    va_end(ap);
+    return 0;
+
+    error:
+    va_end(ap);
+    if (*out) vio_val_free(*out);
+    return err;
+}
+
+/* Create a vector with vlen elements.
+   Stops at the first NULL vararg or at vlen args. */
+vio_err_t vio_vec(vio_ctx *ctx, vio_val **out, uint32_t vlen, ...) {
+    vio_err_t err = 0;
+    vio_val *v;
+    va_list ap;
+    va_start(ap, vlen);
+
+    VIO__CHECK(vio_val_new(ctx, out, vv_vec));
+    (*out)->vlen = vlen;
+    (*out)->vv = (vio_val **)malloc(sizeof(vio_val *) * vlen);
+    for (uint32_t i = 0; i < vlen; ++i) {
+        v = va_arg(ap, vio_val *);
+        if (v == NULL) break;
+        (*out)->vv[i] = v;
+    }
+
+    va_end(ap);
+    return 0;
+
+    error:
+    va_end(ap);
+    return err;
+}
+
 void vio_mark_val(vio_val *v) {
     if (v->mark)
         return;

@@ -31,6 +31,26 @@ char *vio_uneval_val(vio_val *v) {
         if (out == NULL) goto die;
         gmp_sprintf(out, "%Ff", v->n);
         break;
+    case vv_tagword:
+        vout = (char **)malloc(v->vlen * sizeof(char *));
+        total = 5 + v->len + v->vlen; /* also include space for tag name */
+        for (uint32_t i = 0; i < v->vlen; ++i) {
+            vout[i] = vio_uneval_val(v->vv[i]);
+            total += strlen(vout[i]);
+        }
+        out = (char *)malloc(total);
+        out[0] = '.';
+        strncpy(out + 1, v->s, v->len);
+        out[v->len + 1] = '{';
+        out[v->len + 2] = ' ';
+        out[v->len + 3] = '\0';
+        for (uint32_t i = 0; i < v->vlen; ++i) {
+            strcat(out, vout[i]);
+            strcat(out, " ");
+        }
+        out[total-2] = '}';
+        out[total-1] = '\0';
+        break;
     case vv_vec:
         vout = (char **)malloc(v->vlen * sizeof(char *));
         total = 4 + v->vlen; /* spaces between each value */
