@@ -43,25 +43,21 @@ struct _vval {
         vio_int i32;
         mpf_t n;
 
-	/* matrices are stored row-major */
-	vio_float *vf32;
-	/* also used for tagword values */
-	vio_val **vv;
+        /* matrices are stored row-major */
+        vio_float *vf32;
+        /* also used for tagword values */
+        vio_val **vv;
 
-	mpc_parser_t *p;
+        mpc_parser_t *p;
 
-	/* index in `vio_ctx#defs` of a pointer to instructions
-           where a quotation's code can be found (at `jmp` offset) */
-	uint32_t def_idx;
+        /* a quotation's executable instructions */
+        vio_bytecode *bc;
     };
 
     uint32_t rows;
     union {
         uint32_t cols;
         uint32_t vlen;
-
-	/* location of where to jump to for executing quotations */
-	uint32_t jmp;
     };
 
     /* for gc */

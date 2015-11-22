@@ -80,28 +80,15 @@ vio_err_t emit_quot(vio_ctx *ctx, vio_tok **start, vio_bytecode *bc) {
     vio_err_t err = 0;
     vio_opcode jmp;
     vio_val *v;
-    uint32_t imm1 = 0, prev, last, our_def;
+    vio_bytecode *fn;
+    uint32_t imm1 = 0;
     uint8_t imm2 = 0, imm3 = 0, imm4 = 0;
 
-    prev = bc->ip;
-    our_def = ctx->defp;
-    VIO__CHECK(emit(ctx, start, bc, vop_retq, end_quotend));
-    imm1 = bc->ip - prev;
-    EMIT_OPCODE(vop_reljmp);
-
-    /* The relative jump should go at the beginning of the definition, but
-       we don't know how many to jump until we've compiled the rest.
-       Move every instruction by one and then put the jump at the beginning. */
-    last = bc->ip;
-    jmp = bc->prog[--bc->ip];
-    while (bc->ip-- > prev)
-        bc->prog[bc->ip+1] = bc->prog[bc->ip];
-    bc->prog[prev] = jmp;
-    bc->ip = last;
+    VIO__CHECK(vio_bytecode_alloc(&fn));
+    VIO__CHECK(emit(ctx, start, fn, vop_retq, end_quotend));
 
     EMIT_CONST(vv_quot) {
-        v->jmp = prev + 1;
-        v->def_idx = our_def;
+        v->bc = fn;
     }
 
     return 0;
@@ -287,4 +274,23 @@ void vio_bytecode_free(vio_bytecode *bc) {
         vio_val_free(bc->consts[i]);
     free(bc->consts);
     free(bc);
+}
+
+vio_err_t vio_bytecode_clone(vio_ctx *ctx, vio_bytecode *bc, vio_bytecode **out) {
+    vio_err_t err = 0;
+    VIO__CHECK(vio_bytecode_alloc(out));
+    (*out)->ic = bc->ic;
+    (*out)->ip = bc->ip;
+    (*out)->csz = bc->csz;
+    (*out)->psz = bc->psz;
+    VIO__CHECK(vio_bytecode_alloc_opcodes(*out));
+    memcpy((*out)->prog, bc->prog, sizeof(vio_opcode) * bc->psz);
+    VIO__CHECK(vio_bytecode_alloc_consts(*out));
+    for (uint32_t i = 0; i < bc->ic; ++i)
+        VIO__CHECK(vio_val_clone(ctx, bc->consts[i], (*out)->consts + i));
+
+    return 0;
+    error:
+    if (*out) vio_bytecode_free(*out);
+    return err;
 }
