@@ -38,4 +38,9 @@ const char *vio_json_val(vio_val *v);
 const char *vio_json_top(vio_ctx *ctx);
 const char *vio_json_stack(vio_ctx *ctx);
 
+vio_err_t vio_save_image(vio_ctx *ctx, const char *image_file);
+
+vio_err_t vio_open_image(vio_ctx *ctx, const char *image_file);
+vio_err_t vio_close_image(vio_ctx *ctx, const char *image_file);
+
 #endif

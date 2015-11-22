@@ -18,6 +18,7 @@
     X(VE_EXCEEDED_NESTED_VECTOR_LIMIT, "Syntax error: Too deeply nested vector.") \
     X(VE_UNMATCHED_VEC_OPEN, "Syntax error: unmatched '{'") \
     X(VE_UNMATCHED_VEC_CLOSE, "Syntax error: unmatched '}'") \
+    X(VE_UNCLOSED_QUOT, "Syntax error: Unclosed quotation.") \
 \
     X(VE_IO_FAIL, "IO Error: unknown.") \
     X(VE_CORRUPT_IMAGE, "Image appears to be corrupt.") \

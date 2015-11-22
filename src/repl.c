@@ -10,6 +10,7 @@
 #include "bytecode.h"
 #include "context.h"
 #include "error.h"
+#include "eval.h"
 #include "opcodes.h"
 #include "rewrite.h"
 #include "serialize.h"
@@ -44,21 +45,12 @@
 
 char *do_expr(vio_ctx *ctx, const char *expr) {
     vio_err_t err = 0;
-    vio_bytecode *bc;
-    vio_tok *t;
     char *s;
-    CHECK(vio_tokenize_str(&t, expr, strlen(expr)));
-    CHECK(vio_rewrite(&t));
-    CHECK(vio_emit(ctx, t, &bc));
-    CHECK(vio_exec(ctx, bc));
-    vio_tok_free_all(t);
+    VIO__CHECK(vio_eval(ctx, -1, expr));
     s = vio_uneval(ctx);
-    vio_bytecode_free(bc);
     return s;
 
     error:
-    vio_tok_free_all(t);
-    vio_bytecode_free(bc);
     printf("Error: %s\n", vio_err_msg(err));
     puts(ctx->err_msg);
     return NULL;
@@ -69,21 +61,12 @@ int main(int argc, const char **argv) {
 
 #ifdef VIO_SERVER
     int server_port = 0;
-    flag_int(&server_port, "S", "port\tRun as a server. Serves files in the current directory, executing any vio images.");
-#endif
-
-#ifdef VIO_WEBREPL
-    int webrepl_port = 0;
-    flag_int(&webrepl_port, "Sw", "port\tStart a server that runs an in-browser REPL application.");
+    flag_int(&server_port, "S", "port\tRun as a server. Serves files in the current directory. If a Vio image is accessed, it will launch an in-browser REPL web application.");
 #endif
 
     flag_str(&expr, "e", "expr\tEvaluate an expression and exit.");
     flag_str(&txt_file, "c", "file\tCompile a text file to a vio image. If -- is specified for the file, read from STDIN.");
-#ifdef VIO_WEBREPL
-    flag_str(&bc_file, "i", "file\tLoad a vio image. If combined with -Sw, loads the web REPL with that image. By default -Sw uses webrepl.vio if such a file exists.");
-#else
     flag_str(&bc_file, "i", "file\tLoad a vio image.");
-#endif
     flag_str(&out_file, "o", "file\tSpecify a file for the output of -c. By default the image is written to STDOUT.");
     flag_parse(argc, argv, VERSION_INFO);
 
@@ -98,19 +81,8 @@ int main(int argc, const char **argv) {
 
 #ifdef VIO_SERVER
     if (server_port) {
-        printf("Listening on 127.0.0.1:%d\nCtrl-C to stop.\n", server_port);
-#ifdef VIO_WEBREPL
-        vio_server_start(server_port, 0);
-#else
-	vio_server_start(server_port);
-#endif
-    }
-#endif
-
-#ifdef VIO_WEBREPL
-    if (webrepl_port) {
-        printf("Web REPL running on 127.0.0.1:%d\nCtrl-C to stop.\n", webrepl_port);
-        vio_server_start(webrepl_port, 1);
+        printf("Listening on 127.0.0.1:%d\nCtrl-C Ctrl-C to stop.\n", server_port);
+        vio_server_start(server_port);
     }
 #endif
 

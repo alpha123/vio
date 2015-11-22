@@ -1,3 +1,5 @@
+#include <unistd.h>
+#include <stdio.h>
 #include <math.h>
 #include <gmp.h>
 #include "art.h"
@@ -354,6 +356,8 @@ vio_err_t vio_load(vio_ctx *ctx, FILE *fp) {
     return err;
 }
 
+void jsonify_vals(JsonNode *n, vio_val **vs, uint32_t cnt);
+
 void jsonify_val(JsonNode *n, vio_val *v) {
     json_append_member(n, "what", json_mkstring(vio_val_type_name(v->what)));
     const char *repr = vio_uneval_val(v);
@@ -361,7 +365,7 @@ void jsonify_val(JsonNode *n, vio_val *v) {
     long ex;
     JsonNode *m;
     json_append_member(n, "repr", json_mkstring(repr));
-    free(repr);
+    free((char *)repr);
     switch (v->what) {
     case vv_int:
         json_append_member(n, "value", json_mknumber(v->i32));
@@ -429,4 +433,38 @@ const char *vio_json_top(vio_ctx *ctx) {
 
 const char *vio_json_stack(vio_ctx *ctx) {
     return vio_json_vals(ctx->stack, ctx->sp);
+}
+
+vio_err_t vio_open_image(vio_ctx *ctx, const char *image_file) {
+    vio_err_t err = 0;
+    FILE *img = NULL;
+    VIO__CHECK(vio_open(ctx));
+    VIO__ERRIF((img = fopen(image_file, "rb")) == NULL, VE_IO_FAIL);
+    VIO__CHECK(vio_load(ctx, img));
+    fclose(img);
+    return 0;
+
+    error:
+    if (ctx) vio_close(ctx);
+    if (img) fclose(img);
+    return err;
+}
+
+vio_err_t vio_save_image(vio_ctx *ctx, const char *image_file) {
+    vio_err_t err = 0;
+    FILE *img = NULL;
+    VIO__ERRIF((img = fopen(image_file, "wb")) == NULL, VE_IO_FAIL);
+    VIO__CHECK(vio_dump(ctx, img));
+    fclose(img);
+    return 0;
+
+    error:
+    if (img) fclose(img);
+    return err;
+}
+
+vio_err_t vio_close_image(vio_ctx *ctx, const char *image_file) {
+    vio_err_t err = vio_save_image(ctx, image_file);
+    vio_close(ctx);
+    return err;
 }
