@@ -121,14 +121,9 @@ op_load:
     safe_push_clone(ctx, EC(consts)[idx]);
     NEXT;
 op_callq:
-    if (EC(address_sp) - EC(ap_base) >= VIO_MAX_CALL_DEPTH)
-        EXIT(VE_EXCEEDED_MAX_CALL_DEPTH);
     SAFE_POP(v)
     EXPECT(v, vv_quot)
-    if (v->def_idx)
-        PUSH_EXEC_CONTEXT(ctx->defs[v->def_idx]);
-    *EC(address_sp)++ = EC(pc) + 1;
-    EC(pc) = v->jmp;
+    PUSH_EXEC_CONTEXT(v->bc);
     NEXT;
 op_call: {
     vio_bytecode *fn;
@@ -146,8 +141,7 @@ op_call: {
     NEXT;
 }
 op_retq:
-    /* assume the opcode stream is valid and we never have more rets than calls */
-    EC(pc) = *--EC(address_sp);
+    POP_EXEC_CONTEXT();
     NEXT;
 op_ret:
     POP_EXEC_CONTEXT();

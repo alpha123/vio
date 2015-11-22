@@ -66,6 +66,9 @@ void vio_val_free(vio_val *v) {
         mpc_undefine(v->p);
         mpc_delete(v->p);
         break;
+    case vv_quot:
+        vio_bytecode_free(v->bc);
+        break;
     default: break; /* nothing else needs freeing */
     }
     free(v);
@@ -92,6 +95,7 @@ void vio_mark_val(vio_val *v) {
     }
 }
 
+/* ALMOST CERTAINLY DIES ON RECURSIVE PARSERS */
 vio_err_t clone_parser(mpc_parser_t *p, mpc_parser_t **out) {
     vio_err_t err = 0;
     mpc_parser_t *q = (mpc_parser_t *)malloc(sizeof(mpc_parser_t));
@@ -171,8 +175,7 @@ vio_err_t vio_val_clone(vio_ctx *ctx, vio_val *v, vio_val **out) {
        them so that they aren't tied to the lifetime
        of the original. */
     case vv_quot:
-        (*out)->def_idx = v->def_idx;
-        (*out)->jmp = v->jmp;
+        VIO__CHECK(vio_bytecode_clone(ctx, v->bc, &(*out)->bc));
         break;
     case vv_parser:
         VIO__CHECK(clone_parser(v->p, &(*out)->p));

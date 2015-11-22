@@ -22,4 +22,6 @@ void vio_bytecode_free(vio_bytecode *bc);
 vio_err_t vio_bytecode_alloc_opcodes(vio_bytecode *bc);
 vio_err_t vio_bytecode_alloc_consts(vio_bytecode *bc);
 
+vio_err_t vio_bytecode_clone(vio_ctx *ctx, vio_bytecode *bc, vio_bytecode **out);
+
 #endif

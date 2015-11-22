@@ -110,7 +110,7 @@ vio_err_t vio_dump_val(vio_val *v, FILE *fp) {
         free(ns);
         break;
     case vv_quot:
-        SAVE("uu", &v->def_idx, &v->jmp);
+        /*SAVE("uu", &v->def_idx, &v->jmp);*/
         break;
     case vv_parser:
         SAVESTR(v, "", NULL);
@@ -182,7 +182,7 @@ vio_err_t vio_load_val(vio_ctx *ctx, vio_val **out, FILE *fp) {
         free(ns);
         break;
     case vv_quot:
-        LOAD("uu", &v->def_idx, &v->jmp);
+        /*LOAD("uu", &v->def_idx, &v->jmp);*/
         break;
     case vv_parser:
         break;
