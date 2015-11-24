@@ -12,6 +12,7 @@ vio_err_t vio_open(vio_ctx *ctx) {
         sizeof(vio_bytecode *) * VIO_MAX_FUNCTIONS)) == NULL, VE_ALLOC_FAIL);
     VIO__ERRIF((ctx->dict = (vio_dict *)malloc(sizeof(vio_dict))) == NULL, VE_ALLOC_FAIL);
     VIO__CHECK(vio_dict_open(ctx->dict));
+    VIO__ERRIF((ctx->cdict = (art_tree *)malloc(sizeof(art_tree))) == NULL, VE_ALLOC_FAIL);
     VIO__ERRIF(art_tree_init(ctx->cdict) != 0, VE_DICTIONARY_ALLOC_FAIL);
     return 0;
 
@@ -21,6 +22,10 @@ vio_err_t vio_open(vio_ctx *ctx) {
     if (ctx->dict != NULL) {
         vio_dict_close(ctx->dict);
         free(ctx->dict);
+    }
+    if (ctx->cdict != NULL) {
+        art_tree_destroy(ctx->cdict);
+        free(ctx->cdict);
     }
     return err;
 }
