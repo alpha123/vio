@@ -1,4 +1,5 @@
 #include "mpc.h"
+#include "eval.h"
 #include "parsercombinators.h"
 
 vio_err_t pc_parse(vio_ctx *ctx, mpc_parser_t *p, uint32_t len, const char *s, vio_val **out) {
@@ -105,7 +106,6 @@ vio_err_t vio_pc_parse(vio_ctx *ctx) {
     error:
     return err;
 }
-
 
 vio_err_t vio_pc_str(vio_ctx *ctx) {
     vio_err_t err = 0;

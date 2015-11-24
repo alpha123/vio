@@ -24,11 +24,11 @@ int vm_push(vio_ctx *ctx, vio_val *v) {
 
 #define SAFE_PUSH(val) \
     if (vm_push(ctx, val)) \
-        return VE_STACK_OVERFLOW;
+        EXIT(VE_STACK_OVERFLOW);
 
 #define SAFE_POP(v) \
     if (!(v = vm_pop(ctx))) \
-        return VE_STACK_EMPTY;
+        EXIT(VE_STACK_EMPTY);
 
 int safe_push_clone(vio_ctx *ctx, vio_val *v) {
     vio_val *clone;
@@ -65,6 +65,27 @@ int safe_push_clone(vio_ctx *ctx, vio_val *v) {
 
 #define POP_EXEC_CONTEXT() do{ free(*--ecp); aec = *(ecp - 1); }while(0)
 
+int is_fresh_val(vio_val_t type, vio_val *v) {
+    return v->what == type && v->fresh;
+}
+
+vio_err_t fill_veclike(vio_ctx *ctx, vio_val_t type) {
+    vio_val *v;
+    uint32_t vsz = 0;
+    for (uint32_t i = ctx->sp; !is_fresh_val(type, (v = ctx->stack[i-1])); --i)
+        ++vsz;
+    v->fresh = 0;
+    v->vlen = vsz;
+    v->vv = (vio_val **)malloc(sizeof(vio_val *) * vsz);
+    if (v->vv == NULL)
+        return VE_ALLOC_FAIL;
+    for (uint32_t i = 0; i < vsz; ++i) {
+        if ((v->vv[vsz - i - 1] = vm_pop(ctx)) == NULL)
+            return VE_STACK_EMPTY;
+    }
+    return 0;
+}
+
 /* lightweight stack frame thing for handling function calls
    this is probably a subpar implementation, but I really don't
    want to recursively call vio_exec for every function call */
@@ -98,10 +119,8 @@ vio_err_t alloc_faux_stack_frame(struct exec_ctx *_unused_ctx, vio_bytecode *fro
 vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
     vio_err_t err = 0;
 
-    uint32_t idx, vcnt;
+    uint32_t idx;
     vio_val *v;
-    vio_int vcnti;
-    vio_float *vf;
 
     struct exec_ctx execctx;
     struct stack_frame *ec_stack[VIO_MAX_CALL_DEPTH];
@@ -272,32 +291,46 @@ op_swap:
     ctx->stack[ctx->sp-2] = ctx->stack[ctx->sp-1];
     ctx->stack[ctx->sp-1] = v;
     NEXT;
-op_vec:
-    if (ctx->sp == 0) EXIT(VE_STACK_EMPTY);
-    CHECK(vio_pop_int(ctx, &vcnti));
-    if (vcnti < 0) RAISE(VE_COULDNT_CREATE_VECTOR, "Negatively sized vectors don't make sense.");
-    vcnt = (uint32_t)vcnti;
-    if (ctx->sp < vcnt)
-        RAISE(VE_STACK_EMPTY, "Attempted to create a vector of %d elements, but the stack only has %d values.", vcnt, ctx->sp);
-    vio_push_vec(ctx, vcnt);
-    NEXT_MAYBEGC;
-op_vecf:
-    if (ctx->sp == 0) EXIT(VE_STACK_EMPTY);
-    CHECK(vio_pop_int(ctx, &vcnti));
-    if (vcnti < 0) RAISE(VE_COULDNT_CREATE_VECTOR, "Negatively sized vectors don't make sense.");
-    vcnt = (uint32_t)vcnti;
-    if (ctx->sp < vcnt)
-        RAISE(VE_STACK_EMPTY, "Attempted to create a float vector of %d elements, but the stack only has %d values.", vcnt, ctx->sp);
-    vf = (vio_float *)malloc(vcnt * sizeof(vio_float));
-    for (uint32_t i = 0; i < vcnt; ++i)
-        vio_pop_float(ctx, vf + i);
-    vio_push_vecf32(ctx, vcnt, vf);
+op_vstart:
+    CHECK(vio_val_new(ctx, &v, vv_vec));
+    v->fresh = 1;
+    SAFE_PUSH(v)
     NEXT;
+op_vend:
+    fill_veclike(ctx, vv_vec);
+    NEXT_MAYBEGC;
+op_tstart: {
+    vio_val *name;
+    SAFE_POP(name)
+    CHECK(vio_val_new(ctx, &v, vv_tagword));
+    v->fresh = 1;
+    v->len = name->len;
+    v->s = (char *)malloc(v->len);
+    memcpy(v->s, name->s, v->len);
+    SAFE_PUSH(v)
+    NEXT;
+}
+op_tend:
+    fill_veclike(ctx, vv_tagword);
+    NEXT_MAYBEGC;
 op_pcparse:
     CHECK(vio_pc_parse(ctx));
     NEXT_MAYBEGC;
 op_pcmatchstr:
     CHECK(vio_pc_str(ctx));
+    NEXT_MAYBEGC;
+op_pcloadrule:
+    v = EC(consts)[IMM1];
+    if (v->p == NULL) {
+        if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
+            RAISE(VE_UNDEFINED_RULE, "Rule '%.*s' was referenced but is not defined.", v->len, v->s);
+        char *ignore_name;
+        uint32_t oldsp = ctx->sp, ignore_nlen;
+        CHECK(vio_exec(ctx, ctx->defs[idx]));
+        CHECK(vio_pop_parser(ctx, &ignore_nlen, &ignore_name, &v->p));
+        ctx->sp = oldsp;
+    }
+    SAFE_PUSH(v)
     NEXT_MAYBEGC;
 op_pcthen:
     CHECK(vio_pc_then(ctx));

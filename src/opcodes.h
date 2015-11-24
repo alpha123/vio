@@ -47,8 +47,10 @@ vio_opcode vio_opcode_pack(
     X(dup) \
     X(rot) \
     X(swap) \
-    X(vec) \
-    X(vecf) \
+    X(vstart) \
+    X(vend) \
+    X(tstart) \
+    X(tend) \
     X(pcparse) \
     X(pcor) \
     X(pcthen) \
@@ -57,6 +59,7 @@ vio_opcode vio_opcode_pack(
     X(pcmany) \
     X(pcmore) \
     X(pcmatchstr) \
+    X(pcloadrule) \
     X_(nop)
 
 #define DEF_INSTR_CONSTS(instr) vop_##instr,

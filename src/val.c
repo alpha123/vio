@@ -25,6 +25,7 @@ vio_err_t vio_val_new(vio_ctx *ctx, vio_val **out, vio_val_t type) {
     if (v == NULL)
         return VE_ALLOC_FAIL;
     v->what = type;
+    v->fresh = 0; /* vm sets this to 1 if it needs to */
     v->mark = 0;
     v->next = ctx->ohead;
     ctx->ohead = v;
@@ -45,7 +46,8 @@ vio_err_t vio_val_new(vio_ctx *ctx, vio_val **out, vio_val_t type) {
 void vio_val_free(vio_val *v) {
     switch (v->what) {
     case vv_tagword:
-        free(v->vv);
+        if (v->vv)
+            free(v->vv);
         /* FALLTHROUGH (clear tagname) */
     case vv_str:
         free(v->s);
@@ -63,8 +65,10 @@ void vio_val_free(vio_val *v) {
         break;
     case vv_parser:
         free(v->s);
-        mpc_undefine(v->p);
-        mpc_delete(v->p);
+        if (v->p) {
+            mpc_undefine(v->p);
+            mpc_delete(v->p);
+        }
         break;
     case vv_quot:
         vio_bytecode_free(v->bc);

@@ -4,14 +4,89 @@
 #include <string.h>
 #include "rewrite.h"
 
+/* Coincidentally, this file probably needs to be rewritten. ;-) */
+
 #define MAX_VECTOR_NEST 32
 
 #define is_short_word(t) ((t)->what == vt_word && (t)->len == 1)
-#define is_vec_start(t) (is_short_word(t) && (t)->s[0] == '{')
-#define is_vec_end(t) (is_short_word(t) && (t)->s[0] == '}')
 #define is_short_comma_combinator(t) ((t)->what == vt_word && (t)->s[0] == ',' && (t)->len > 3)
 #define is_comma_rule(t) (is_short_comma_combinator(t) && (t)->s[1] == '<')
 #define is_comma_matchstr(t) (is_short_comma_combinator(t) && (t)->s[1] == '`')
+
+#define simple_is_vec_start(t) (is_short_word(t) && (t)->s[0] == '{')
+#define simple_is_vec_end(t) (is_short_word(t) && (t)->s[0] == '}')
+#define simple_is_tagvec_start(t) ((t)->what == vt_tagword && (t)->len > 1 && \
+    (t)->s[(t)->len-1] == '{')
+
+typedef vio_err_t (* ins_action)(vio_tok **, uint32_t, const char *);
+typedef int (* bounds_condition)(vio_tok *, void *);
+
+vio_err_t replacetok(vio_tok **t, uint32_t swlen, const char *start_word) {
+    vio_tok *u = *t;
+    free(u->s);
+    u->len = swlen;
+    u->s = (char *)malloc(swlen);
+    if (u->s == NULL)
+        return VE_ALLOC_FAIL;
+    strncpy(u->s, start_word, swlen);
+    return 0;
+}
+
+vio_err_t inserttag(vio_tok **t, uint32_t swlen, const char *start_word) {
+    vio_tok *u = *t, *v, *tmp = (*t)->next;
+    u->len -= 1; /* remove { */
+    v = u->next = (vio_tok *)malloc(sizeof(vio_tok));
+    if (v == NULL)
+        return VE_ALLOC_FAIL;
+    v->what = vt_word;
+    v->line = u->line;
+    v->pos = u->pos;
+    v->len = swlen;
+    v->s = (char *)malloc(swlen);
+    if (v->s == NULL) {
+        free(v);
+        return VE_ALLOC_FAIL;
+    }
+    strncpy(v->s, start_word, swlen);
+    v->next = tmp;
+    *t = v;
+    return 0;
+}
+
+int is_vec_start(vio_tok *t, void *_data) {
+    return simple_is_vec_start(t);
+}
+int is_vec_end(vio_tok *t, void *_data) {
+    return simple_is_vec_end(t);
+}
+
+struct tagword_state {
+    int in_twp;
+    int in_tw[MAX_VECTOR_NEST];
+    vio_err_t err;
+};
+
+int is_tagvec_start(vio_tok *t, void *data) {
+    struct tagword_state *tws = (struct tagword_state *)data;
+    int res = simple_is_tagvec_start(t);
+    if (tws->in_twp == MAX_VECTOR_NEST) {
+        tws->err = VE_EXCEEDED_NESTED_VECTOR_LIMIT;
+        return 0;
+    }
+    /* count { so is_tagvec_end knows if a } ends a tagword or a vector */
+    if (res)
+        tws->in_tw[tws->in_twp++] = 1;
+    else if (is_vec_start(t, NULL))
+        tws->in_tw[tws->in_twp++] = 0;
+    return res;
+}
+
+int is_tagvec_end(vio_tok *t, void *data) {
+    struct tagword_state *tws = (struct tagword_state *)data;
+    if (is_vec_end(t, NULL) && tws->in_twp > 0)
+        return tws->in_tw[--tws->in_twp];
+    return 0;
+}
 
 /* rewrite match strings `foo`  into '"foo" match' */
 vio_err_t rewrite_matchstr(vio_tok **begin) {
@@ -70,66 +145,52 @@ vio_err_t rewrite_short_comma_combinator(vio_tok **begin) {
     return 0;
 }
 
-/* rewrite vector literals {a b c} into 'a b c 3 vec' */
-vio_err_t rewrite_vec(vio_tok **begin) {
+vio_err_t rewrite_collection(vio_tok **begin,
+                             bounds_condition is_start, bounds_condition is_end,
+                             void *state_data, ins_action insert,
+                             uint32_t swlen, const char *start_word,
+                             uint32_t ewlen, const char *end_word) {
     vio_err_t err = 0;
-    unsigned int vs_start[MAX_VECTOR_NEST], *vecsize;
-    vecsize = vs_start;
-    vio_tok *t = *begin, *tmp, *last = NULL;
+    uint32_t vecnest = 0;
+    vio_tok *t = *begin;
     while (t) {
-        if (is_vec_start(t)) {
-            VIO__ERRIF(vecsize - MAX_VECTOR_NEST == vs_start, VE_EXCEEDED_NESTED_VECTOR_LIMIT);
-            /* handle vectors of vectors */
-            if (vecsize != vs_start)
-                ++*vecsize;
-            *++vecsize = 0;
-            tmp = t;
-            if (last)
-                last->next = t->next;
-            else
-                *begin = t->next;
-            t = t->next;
-            vio_tok_free(tmp);
+        if (is_start(t, state_data)) {
+            VIO__CHECK(insert(&t, swlen, start_word));
+            ++vecnest;
         }
-        else if (is_vec_end(t)) {
-            VIO__ERRIF(vecsize == vs_start, VE_UNMATCHED_VEC_CLOSE);
-            tmp = t->next;
+        else if (is_end(t, state_data)) {
+            VIO__ERRIF(vecnest == 0, VE_UNMATCHED_VEC_CLOSE);
             free(t->s);
-            t->what = vt_num;
-            t->len = floor(log10(*vecsize)) + 1;
-            t->s = (char *)malloc(t->len+1);
-            snprintf(t->s, t->len+1, "%d", *vecsize);
-            t->next = (vio_tok *)malloc(sizeof(vio_tok));
-            VIO__ERRIF(t->next == NULL, VE_ALLOC_FAIL);
-            t->next->what = vt_word;
-            t->next->line = t->line;
-            t->next->pos = t->pos;
-            t->next->len = 3;
-            t->next->s = (char *)malloc(3);
-            strncpy(t->next->s, "vec", 3);
-            t->next->next = tmp;
-            --vecsize;
-            last = t->next;
-            t = tmp;
+            t->len = ewlen;
+            t->s = (char *)malloc(ewlen);
+            strncpy(t->s, end_word, ewlen);
+            --vecnest;
         }
-        else if (vecsize != vs_start) {
-            if (t->what != vt_word)
-                ++*vecsize;
-            last = t;
-            t = t->next;
-        }
-        else { /* just copying regular tokens */
-            last = t;
-            t = t->next;
-        }
+        t = t->next;
     }
-    VIO__ERRIF(vecsize != vs_start, VE_UNMATCHED_VEC_OPEN);
+    VIO__ERRIF(vecnest != 0, VE_UNMATCHED_VEC_OPEN);
     return 0;
 
     error:
     return err;
 }
 
+/* rewrite vector literals {a b c} into 'vecstart a b c vecend' */
+vio_err_t rewrite_vec(vio_tok **begin) {
+    return rewrite_collection(begin, is_vec_start, is_vec_end, NULL,
+                              replacetok, 8, "vecstart", 6, "vecend");
+}
+
+/* rewrite tagword vector part .tag{ a b } into .tag tagstart a b tagend */
+vio_err_t rewrite_tag_vec(vio_tok **begin) {
+    struct tagword_state tws;
+    tws.err = 0;
+    tws.in_twp = 0;
+    return rewrite_collection(begin, is_tagvec_start, is_tagvec_end, &tws,
+                              inserttag, 8, "tagstart", 6, "tagend") || tws.err;
+}
+
 vio_err_t vio_rewrite(vio_tok **t) {
-    return rewrite_short_comma_combinator(t) || rewrite_matchstr(t) || rewrite_vec(t);
+    return rewrite_short_comma_combinator(t) || rewrite_matchstr(t) ||
+        rewrite_tag_vec(t) || rewrite_vec(t);
 }

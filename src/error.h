@@ -5,7 +5,6 @@
 
 #define LIST_ERRORS(_X, X, X_) \
     _X(VE_ALLOC_FAIL, "Fatal: unable to allocate memory.") \
-    X(VE_GENERIC_ERROR, "program is kill") \
 \
     X(VE_TOKENIZER_INVALID_STATE, "Bizarre internal error: tokenizer entered invalid state.") \
     X(VE_TOKENIZER_BAD_ESCAPE_SEQUENCE, "Syntax error: bad escape sequence in string.") \
@@ -38,6 +37,7 @@
     X(VE_TOO_MANY_WORDS, "Too many words defined.") \
     X(VE_EXCEEDED_MAX_CALL_DEPTH, "Exceeded maximum call depth.") \
     X(VE_CALL_TO_UNDEFINED_WORD, "Attempted to call undefined word.") \
+    X(VE_UNDEFINED_RULE, "Reference to undefined rule.") \
     X_(VE_BAD_OPCODE, "VM Error: Bad opcode.")
 
 #define _DEF_ENUM(e,_d) e = 1,
