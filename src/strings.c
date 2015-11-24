@@ -29,14 +29,7 @@ vio_err_t vio_edit_dist(vio_ctx *ctx) {
 }
 
 vio_err_t vio_sorted_sufarray(vio_ctx *ctx) {
-    vio_err_t err = 0;
-
-    saidx_t *ssa = (saidx_t *)malloc(sizeof(saidx_t));
-
     return 0;
-    error:
-    if (ssa) free(ssa);
-    return err;
 }
 
 vio_err_t vio_lcss(vio_ctx *ctx) {

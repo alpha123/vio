@@ -117,22 +117,30 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
             EMIT_OPCODE(vop_dup);
         else if (strncmp(t->s, "rot", 3) == 0)
             EMIT_OPCODE(vop_rot);
-        else if (strncmp(t->s, "vec", 3) == 0)
-            EMIT_OPCODE(vop_vec);
         break;
     case 4:
         if (strncmp(t->s, "eval", 4) == 0)
             EMIT_OPCODE(vop_callq);
         else if (strncmp(t->s, "swap", 4) == 0)
             EMIT_OPCODE(vop_swap);
-        else if (strncmp(t->s, "vecf", 4) == 0)
-            EMIT_OPCODE(vop_vecf);
         break;
     case 5:
         if (strncmp(t->s, "match", 5) == 0)
             EMIT_OPCODE(vop_pcmatchstr);
         else if (strncmp(t->s, "parse", 5) == 0)
             EMIT_OPCODE(vop_pcparse);
+        break;
+    case 6:
+        if (strncmp(t->s, "vecend", 6) == 0)
+            EMIT_OPCODE(vop_vend);
+        else if (strncmp(t->s, "tagend", 6) == 0)
+            EMIT_OPCODE(vop_tend);
+        break;
+    case 8:
+        if (strncmp(t->s, "vecstart", 8) == 0)
+            EMIT_OPCODE(vop_vstart);
+        else if (strncmp(t->s, "tagstart", 8) == 0)
+            EMIT_OPCODE(vop_tstart);
         break;
     }
 }
@@ -187,6 +195,15 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
             }
             free(nulls);
             break;
+        case vt_tagword:
+            EMIT_CONST(vv_tagword) {
+                v->len = t->len;
+                v->s = (char *)malloc(v->len);
+                strncpy(v->s, t->s, v->len);
+                v->vlen = 0;
+                v->vv = NULL;
+            }
+            break;
         case vt_word:
             /* try, in order:
                - quotation
@@ -231,12 +248,14 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
             }
             break;
         case vt_rule:
-            EMIT_CONST(vv_parser) {
-                v->len = t->len;
-                v->s = (char *)malloc(v->len);
-                strncpy(v->s, t->s, v->len);
-                v->p = mpc_new(v->s);
-            }
+            VIO__CHECK(vio_val_new(ctx, &v, vv_parser));
+            v->len = t->len;
+            VIO__ERRIF((v->s = (char *)malloc(v->len)) == NULL, VE_ALLOC_FAIL);
+            strncpy(v->s, t->s, v->len);
+            v->p = NULL;
+            bc->consts[bc->ic] = v;
+            imm1 = bc->ic++;
+            EMIT_OPCODE(vop_pcloadrule);
             break;
         }
         *begin = t;

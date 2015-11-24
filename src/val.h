@@ -61,6 +61,9 @@ struct _vval {
         uint32_t vlen;
     };
 
+    /* vm uses it for marking new vectors/tagwords */
+    int fresh;
+
     /* for gc */
     int mark;
     vio_val *next;

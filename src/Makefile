@@ -13,7 +13,7 @@ CFLAGS+=-std=gnu11 -Wall -ftree-vectorize -msse4
 CFLAGS+=-DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION
 LDFLAGS+=-Wl,-rpath=/usr/local/lib/gcc5
 ifeq ($(DEBUG),yes)
-	CFLAGS+=-g -ftree-vectorizer-verbose=2
+	CFLAGS+=-g -ftree-vectorizer-verbose=2 -DDEBUG
 else
 	CFLAGS+=-O2 -DNDEBUG
 endif
@@ -22,15 +22,15 @@ INCLUDE_DIRS=-I/usr/include -I/usr/local/include
 
 LIBS=-lm -lgmp -l$(BLAS_IMPL)
 
-VIO_SRCS=bytecode.c context.c dict.c error.c eval.c gc.c math.c opcodes.c parsercombinators.c repl.c rewrite.c serialize.c stdvio.c strings.c tok.c uneval.c val.c webrepl.c vm.c
+VIO_SRCS=bytecode.c context.c dict.c error.c eval.c gc.c math.c \
+opcodes.c parsercombinators.c repl.c rewrite.c serialize.c stdvio.c \
+strings.c tok.c uneval.c val.c vm.c
 SRCS=$(VIO_SRCS) art.c flag.c json.c mpc.c tpl.c civetweb.c
-VIO_HEADERS=$(VIO_SRCS:.c=.h)
-VIO_HEADERS:=$(filter-out repl.h,$(VIO_HEADERS))
+VIO_HEADERS=$(filter-out repl.h,$(VIO_SRCS:.c=.h))
 WEBREPL_SRCS=webrepl/index.html webrepl/main.js
 
 ifeq ($(ENABLE_SERVER),yes)
-	VIO_SRCS+=server.c
-	VIO_HEADERS+=server.h
+	VIO_SRCS+=server.c webrepl.c
 	LIBS+=-lpthread
 	CFLAGS+=-DVIO_SERVER -DUSE_WEBSOCKET -DNO_SSL
 endif
