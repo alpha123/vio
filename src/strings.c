@@ -3,7 +3,7 @@
 
 vio_err_t vio_strcat(vio_ctx *ctx) {
     vio_err_t err = 0;
-    char *a, *b, *cat;
+    char *a, *b, *cat = NULL;
     uint32_t alen, blen;
     vio_val *v;
 
