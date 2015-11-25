@@ -1,4 +1,5 @@
 #include "divsufsort.h"
+#include "mpc.h"
 #include "strings.h"
 
 vio_err_t vio_strcat(vio_ctx *ctx) {
@@ -22,6 +23,10 @@ vio_err_t vio_strcat(vio_ctx *ctx) {
     error:
     if (cat) free(cat);
     return err;
+}
+
+vio_err_t vio_strsplit(vio_ctx *ctx) {
+    return 0;
 }
 
 vio_err_t vio_edit_dist(vio_ctx *ctx) {

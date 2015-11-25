@@ -1,6 +1,7 @@
 #include <float.h>
 #include <math.h>
 #include "mpc_private.h"
+#include "parsercombinators.h"
 #include "val.h"
 
 VIO_CONST
@@ -32,7 +33,11 @@ vio_err_t vio_val_new(vio_ctx *ctx, vio_val **out, vio_val_t type) {
     ++ctx->ocnt;
 
     /* set pointers to null, mostly for ease of error handling */
+    v->len = 0;
     v->s = NULL;
+
+    v->vlen = 0;
+    v->rows = 0;
     v->vv = NULL; /* also sets vf32 to NULL */
 
     /* can't actually trigger a gc here in case we're in an
@@ -78,31 +83,44 @@ void vio_val_free(vio_val *v) {
     free(v);
 }
 
-vio_err_t vio_tagword(vio_ctx *ctx, vio_val **out, const char *name, uint32_t vlen, ...) {
+vio_err_t vio_tagword_v(vio_ctx *ctx, vio_val **out, uint32_t nlen, const char *name, uint32_t vlen, va_list ap) {
     vio_err_t err = 0;
-    va_list ap;
-    va_start(ap, vlen);
-
     *out = NULL;
 
     VIO__CHECK(vio_val_new(ctx, out, vv_tagword));
 
-    (*out)->len = strlen(name);
-    (*out)->s = (char *)malloc((*out)->len);
+    (*out)->len = nlen;
+    (*out)->s = (char *)malloc(nlen);
     VIO__ERRIF((*out)->s == NULL, VE_ALLOC_FAIL);
-    strncpy((*out)->s, name, (*out)->len);
+    strncpy((*out)->s, name, nlen);
 
     (*out)->vlen = vlen;
     (*out)->vv = (vio_val **)malloc(sizeof(vio_val *) * vlen);
     for (uint32_t i = 0; i < vlen; ++i)
         (*out)->vv[i] = va_arg(ap, vio_val *);
 
-    va_end(ap);
     return 0;
 
     error:
-    va_end(ap);
     if (*out) vio_val_free(*out);
+    return err;
+}
+
+vio_err_t vio_tagword(vio_ctx *ctx, vio_val **out, uint32_t nlen, const char *name, uint32_t vlen, ...) {
+    vio_err_t err = 0;
+    va_list ap;
+    va_start(ap, vlen);
+    err = vio_tagword_v(ctx, out, nlen, name, vlen, ap);
+    va_end(ap);
+    return err;
+}
+
+vio_err_t vio_tagword0(vio_ctx *ctx, vio_val **out, const char *name, uint32_t vlen, ...) {
+    vio_err_t err = 0;
+    va_list ap;
+    va_start(ap, vlen);
+    err = vio_tagword_v(ctx, out, strlen(name), name, vlen, ap);
+    va_end(ap);
     return err;
 }
 
@@ -169,6 +187,16 @@ void vio_mark_val(vio_val *v) {
     }
 }
 
+/* BAD; strongly coupled, pretty much relies on knowing
+   how the mpc_pc_* functions work. */
+vio_err_t clone_parser_data(mpc_val_t *v, mpc_val_t **out) {
+    struct vio_mpc_val *a = (struct vio_mpc_val *)v, *b;
+    b = vio_mpc_val_new(a->ctx, a->v, a->nlen, a->name);
+    if (b == NULL) return VE_ALLOC_FAIL;
+    *out = b;
+    return 0;
+}
+
 /* ALMOST CERTAINLY DIES ON RECURSIVE PARSERS */
 vio_err_t clone_parser(mpc_parser_t *p, mpc_parser_t **out) {
     vio_err_t err = 0;
@@ -182,6 +210,11 @@ vio_err_t clone_parser(mpc_parser_t *p, mpc_parser_t **out) {
         strcpy(q->name, p->name);
     }
     switch (p->type) {
+    case MPC_TYPE_APPLY_TO:
+        q->data.apply_to.f = p->data.apply_to.f;
+        VIO__CHECK(clone_parser_data(p->data.apply_to.d, &q->data.apply_to.d));
+        VIO__CHECK(clone_parser(p->data.apply_to.x, &q->data.apply_to.x));
+        break;
     case MPC_TYPE_EXPECT:
         q->data.expect.m = (char *)malloc(strlen(p->data.expect.m));
         VIO__ERRIF(q->data.expect.m == NULL, VE_ALLOC_FAIL);

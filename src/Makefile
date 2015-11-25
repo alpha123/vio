@@ -8,12 +8,18 @@ USE_SYSTEM_SQLITE=no
 
 BLAS_IMPL=openblas
 
-CC=gcc5
-CFLAGS+=-std=gnu11 -Wall -ftree-vectorize -msse4
-CFLAGS+=-DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION
-LDFLAGS+=-Wl,-rpath=/usr/local/lib/gcc5
+GCCFLAGS=
+ifneq ($(findstring "gcc",$(CC)),)
+	GCCFLAGS+=-ftree-vectorize
 ifeq ($(DEBUG),yes)
-	CFLAGS+=-g -ftree-vectorizer-verbose=2 -DDEBUG
+	GCCFLAGS+=-ftree-vectorizer-verbose=2
+endif
+endif
+
+CFLAGS+=-std=gnu11 -Wall -msse4
+CFLAGS+=-DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION
+ifeq ($(DEBUG),yes)
+	CFLAGS+=-g -DDEBUG
 else
 	CFLAGS+=-O2 -DNDEBUG
 endif
@@ -70,7 +76,7 @@ $(IVIO): $(OBJS)
 	$(CC) $(LDFLAGS) $(OBJS) -o $@ $(LIBS)
 
 .c.o:
-	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -c $< -o $@
+	$(CC) $(CFLAGS) $(GCCFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
 webrepl: $(WEBREPL_SRCS)
 	cd webrepl && \

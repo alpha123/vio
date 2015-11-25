@@ -62,11 +62,36 @@ vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {
     return err;
 }
 
+vio_err_t vio_raise_undefined_rule(vio_ctx *ctx, vio_val *rule) {
+    uint32_t rl = rule->len;
+    char *rs = rule->s;
+    return vio_raise(ctx, VE_UNDEFINED_RULE,
+                     "Rule '%.*s' was referenced but is not defined.\n"
+                     "Maybe you attempted to define a rule like '<%.*s>: ...',\n"
+                     "when the proper syntax is '%.*s: ...'.\n"
+                     "Explanation: <%.*s> is the noun form of the parsing verb %.*s.",
+                     rl, rs, rl, rs, rl, rs, rl, rs, rl, rs);
+}
+
+vio_err_t vio_raise_empty_stack(vio_ctx *ctx, const char *fname, uint32_t min_vals) {
+    static const char *plural[] = { "", "s" };
+    return vio_raise(ctx, VE_STACK_EMPTY,
+                     "Word '%s' requires a minimum of %d value%s on the stack, "
+                     "but only %d value%s exist%s.\n"
+                     "Either you did not push enough values, or something is getting popped "
+                     "unexpectedly.\nDid you mean to 'keep' or 'dup' a preceeding noun?",
+                     fname, min_vals, plural[min_vals!=1], ctx->sp, plural[ctx->sp!=1], plural[ctx->sp==1]);
+}
+
 void vio_register(vio_ctx *ctx, const char *name, vio_function fn, int arity) {
+    vio_register_multiret(ctx, name, fn, arity, 1);
+}
+
+void vio_register_multiret(vio_ctx *ctx, const char *name, vio_function fn, int arity, int ret_cnt) {
     vio_function_info *fi = (vio_function_info *)malloc(sizeof(vio_function_info));
     fi->fn = fn;
     fi->arity = arity;
-    fi->ret_cnt = 1;
+    fi->ret_cnt = ret_cnt;
     art_insert(ctx->cdict, (const unsigned char *)name, strlen(name), fi);
 }
 
@@ -188,7 +213,7 @@ vio_err_t push(vio_ctx *ctx, vio_val *v) {
 #define PT_MATF(name, which) \
     vio_err_t vio_ ## name ## _matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out) { \
         *out = NULL; \
-        which(vv_matf); \
+        which(vv_matf) \
         *rows = v->rows; \
         *cols = v->cols; \
         *out = v->vf32; \
@@ -202,17 +227,17 @@ vio_err_t push(vio_ctx *ctx, vio_val *v) {
     }
 
 #define PT_PARSER(name, which) \
-    vio_err_t vio_ ## name ## _parser(vio_ctx *ctx, uint32_t *nlen, char **name, mpc_parser_t **out) { \
+    vio_err_t vio_ ## name ## _parser(vio_ctx *ctx, uint32_t *nlen, char **parser_name, mpc_parser_t **out) { \
         *out = NULL; \
         which(vv_parser) \
         *nlen = v->len; \
-        *name = v->s; \
+        *parser_name = v->s; \
         *out = v->p; \
         return 0; \
 \
         error: \
         *nlen = 0; \
-        *name = NULL; \
+        *parser_name = NULL; \
         *out = NULL; \
         return err; \
     }
@@ -291,11 +316,11 @@ vio_err_t vio_pop_mat(vio_ctx *ctx, uint32_t *rows, uint32_t *cols) {
     X(PT_NUM) \
     X(PT_VECF) \
     X(PT_MATF) \
-    X(PT_PARSER) \
+    X(PT_PARSER)
 
 #define DEF_BOTH(typ) \
    typ(pop, POP) \
-   typ(top, TOP) \
+   typ(top, TOP)
 
 TYPES(DEF_BOTH)
 
@@ -304,7 +329,7 @@ TYPES(DEF_BOTH)
     vio_err_t err = 0; \
     if ((err = vio_val_new(ctx, &v, what)) || \
         (err = push(ctx, v))) \
-        goto error; \
+        goto error;
 
 #define HANDLE_ERRORS \
     error: \

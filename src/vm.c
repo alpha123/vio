@@ -273,20 +273,18 @@ op_div:
     CHECK(vio_div(ctx));
     NEXT_MAYBEGC;
 op_dup:
-    if (ctx->sp == 0) RAISE(VE_STACK_EMPTY, "'dup' has nothing to duplicate!");
+    if (ctx->sp == 0) EXIT(vio_raise_empty_stack(ctx, "dup", 1));
     SAFE_PUSH(ctx->stack[ctx->sp-1])
     NEXT;
 op_rot:
-    if (ctx->sp < 3)
-        RAISE(VE_STACK_EMPTY, "'rot' requires a stack size of at least 3, but only %d values exist", ctx->sp);
+    if (ctx->sp < 3) EXIT(vio_raise_empty_stack(ctx, "rot", 3));
     v = ctx->stack[ctx->sp-3];
     ctx->stack[ctx->sp-3] = ctx->stack[ctx->sp-1];
     ctx->stack[ctx->sp-1] = ctx->stack[ctx->sp-2];
     ctx->stack[ctx->sp-2] = v;
     NEXT;
 op_swap:
-    if (ctx->sp < 2)
-        RAISE(VE_STACK_EMPTY, "Can't use 'swap' on an empty stack or a stack with a single value.");
+    if (ctx->sp < 2) EXIT(vio_raise_empty_stack(ctx, "swap", 2));
     v = ctx->stack[ctx->sp-2];
     ctx->stack[ctx->sp-2] = ctx->stack[ctx->sp-1];
     ctx->stack[ctx->sp-1] = v;
@@ -321,16 +319,18 @@ op_pcmatchstr:
     NEXT_MAYBEGC;
 op_pcloadrule:
     v = EC(consts)[IMM1];
-    if (v->p == NULL) {
+    /*if (v->p == NULL) {*/
         if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
-            RAISE(VE_UNDEFINED_RULE, "Rule '%.*s' was referenced but is not defined.", v->len, v->s);
-        char *ignore_name;
-        uint32_t oldsp = ctx->sp, ignore_nlen;
+            EXIT(vio_raise_undefined_rule(ctx, v));
+        uint32_t oldsp = ctx->sp;
         CHECK(vio_exec(ctx, ctx->defs[idx]));
-        CHECK(vio_pop_parser(ctx, &ignore_nlen, &ignore_name, &v->p));
+        CHECK(vio_pc_loadrule(ctx, v));
         ctx->sp = oldsp;
-    }
+    /*}*/
     SAFE_PUSH(v)
+    /* Get the actual rule to use for parsing; must be
+       reinitialized each time called */
+    CHECK(vio_pc_initrule(ctx, v, &ctx->stack[ctx->sp-1]->p));
     NEXT_MAYBEGC;
 op_pcthen:
     CHECK(vio_pc_then(ctx));

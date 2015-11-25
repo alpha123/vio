@@ -5,6 +5,9 @@
 #include "error.h"
 
 vio_err_t vio_strcat(vio_ctx *ctx);
+
+vio_err_t vio_strsplit(vio_ctx *ctx);
+
 /* levenshtein edit distance */
 vio_err_t vio_edit_dist(vio_ctx *ctx);
 /* sorted suffix array */

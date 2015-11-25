@@ -50,12 +50,26 @@ void vio_close(vio_ctx *ctx);
    @returns its error argument */
 vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...);
 
+/* A couple handy functions to raise descriptive error messages. */
+
+/* @returns VE_UNDEFINED_RULE */
+vio_err_t vio_raise_undefined_rule(vio_ctx *ctx, vio_val *rule);
+/* @returns VE_STACK_EMPTY */
+vio_err_t vio_raise_empty_stack(vio_ctx *ctx, const char *fname, uint32_t min_vals);
+
 /* Return the type of the value on top of the stack.
    Returns 0 if the stack is empty, because using vio_err_t
    would be clumpsy. However that may be subject to change.
    @returns either 0 or an int that can safely be cast to a vio_val_t */
 int vio_what(vio_ctx *ctx);
 
+/* Register a C function to be called from vio.
+   @name should be null terminated
+   @arity Vio will auto-vectorize functions of certain arity. Use 0 to disable this.
+   @ret_cnt is the number of values the function will return. -1 means it may return
+            a variable number of values. */
+void vio_register_multiret(vio_ctx *ctx, const char *name, vio_function fn, int arity, int ret_arity);
+/* Same as vio_register_multiret, but for functions that always return 1 value. */
 void vio_register(vio_ctx *ctx, const char *name, vio_function fn, int arity);
 
 vio_err_t vio_pop_str(vio_ctx *ctx, uint32_t *len, char **out);
@@ -64,7 +78,7 @@ vio_err_t vio_pop_float(vio_ctx *ctx, vio_float *out);
 vio_err_t vio_pop_num(vio_ctx *ctx, mpf_t *out);
 vio_err_t vio_pop_vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out);
 vio_err_t vio_pop_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out);
-vio_err_t vio_pop_parser(vio_ctx *ctx, uint32_t *nlen, char **name, mpc_parser_t **out);
+vio_err_t vio_pop_parser(vio_ctx *ctx, uint32_t *nlen, char **parser_name, mpc_parser_t **out);
 
 vio_err_t vio_top_str(vio_ctx *ctx, uint32_t *len, char **out);
 vio_err_t vio_top_int(vio_ctx *ctx, vio_int *out);
@@ -72,7 +86,7 @@ vio_err_t vio_top_float(vio_ctx *ctx, vio_float *out);
 vio_err_t vio_top_num(vio_ctx *ctx, mpf_t *out);
 vio_err_t vio_top_vecf32(vio_ctx *ctx, uint32_t *len, vio_float **out);
 vio_err_t vio_top_matf32(vio_ctx *ctx, uint32_t *rows, uint32_t *cols, vio_float **out);
-vio_err_t vio_top_parser(vio_ctx *ctx, uint32_t *nlen, char **name, mpc_parser_t **out);
+vio_err_t vio_top_parser(vio_ctx *ctx, uint32_t *nlen, char **parser_name, mpc_parser_t **out);
 
 /* These functions push the internal tag/vec/mat values onto the stack
    and so do not take an out parameter for those (but do take one for the

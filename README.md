@@ -72,10 +72,10 @@ Other stuff:
 	expr: <factor> "+-" maybe-op
 	factor: <term> "*/" maybe-op
 	term: <int> <expr> parens |
-	int: <d> +
+	int: d +
 
 	math: <expr> parse
-	"4 + 2 * 2" math		-- .expr{.int{"4"} "+" .factor{.int{"2"} "*" .int{"2"}}}
+	"4 + 2 * 2" math		-- .success{ .expr{ .int{"4"} "+" .factor{ .int{"2"} "*" .int{"2"} } } }
 
 	-- Find prime numbers inefficiently but concisely
 	primes-upto: 1 - iota 2 + $[dup *o] member? not ~id
