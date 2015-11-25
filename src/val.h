@@ -73,8 +73,13 @@ vio_err_t vio_val_new(vio_ctx *ctx, vio_val **out, vio_val_t type);
 void vio_val_free(vio_val *v);
 void vio_mark_val(vio_val *v);
 
-vio_err_t vio_tagword(vio_ctx *ctx, vio_val **out, const char *name, uint32_t vlen, ...);
+vio_err_t vio_tagword(vio_ctx *ctx, vio_val **out, uint32_t nlen, const char *name, uint32_t vlen, ...);
+vio_err_t vio_tagword0(vio_ctx *ctx, vio_val **out, const char *name, uint32_t vlen, ...);
+
 vio_err_t vio_vec(vio_ctx *ctx, vio_val **out, uint32_t vlen, ...);
+
+vio_err_t vio_string(vio_ctx *ctx, vio_val **out, uint32_t len, const char *str);
+vio_err_t vio_string0(vio_ctx *ctx, vio_val **out, const char *str);
 
 vio_err_t vio_coerce(vio_ctx *ctx, vio_val *from, vio_val **to, vio_val_t what);
 

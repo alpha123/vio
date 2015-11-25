@@ -52,6 +52,8 @@ typedef enum {
 #undef DEF_ENUM
 #undef DEF_ENUM_
 
+/* Get a string message for a vio_err_t number. The string returned is static
+   and should not be freed. */
 const char *vio_err_msg(vio_err_t err);
 
 /* not really intended for public use */
