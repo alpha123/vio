@@ -56,17 +56,17 @@ Only the core VM and bytecode compiler are implemented; these examples may or ma
 	5 factorial		-- 120
 	
 	-- Higher-order functions
-	mean: [0 \+] [len] bi /
+	mean: [0 \+] &len bi /
 	{ 5 9 4 8 3 } mean		-- 5.8
 
 	-- Lots of weird sigils
-	qsort: [[small-vec?] [all-eq?] bi or] preserve [[median] preserve ~/'[_ cmp] $qsort {} \vcat] unless
+	qsort: [&small-vec? &all-eq? bi or] preserve [&median preserve ~/'[_ cmp] #qsort {} \vcat] unless
 	-- Or just the built-in sort function, but whatever.
 
 Other stuff:
 
 	-- Parse infix calculator input
-	maybe-op: over dup [one-of] dip2 , , |
+	maybe-op: over dup &one-of dip2 , , |
 	parens: `(` swap ,`)` ,
 
 	expr: <factor> "+-" maybe-op
@@ -78,19 +78,19 @@ Other stuff:
 	"4 + 2 * 2" math		-- .expr{.int{"4"} "+" .factor{.int{"2"} "*" .int{"2"}}}
 
 	-- Find prime numbers inefficiently but concisely
-	primes-upto: 1 - iota 2 + [dup *o] keep member? not ~id
+	primes-upto: 1 - iota 2 + $[dup *o] member? not ~id
 	6 primes-upto		-- { 2 3 5 }
 	
-	--  *o is outer product, ~id is filter by identity function
+	-- *o is outer product, ~id is filter by identity function
 	-- the rest is left as an exercise to the reader
 
 On the horizon:
 
 	-- Immediate-mode GUI
-	.xywh{10 10 30 8} "Click me!" button [.xy{50 10} "Clicked" label] when
+	.xywh{10 10 30 12} "Click me!" button [.xy{50 10} "Clicked" label] when
 
 	-- Data visualization and whatever
-	11 iota 5 - [tanh] graph
+	11 iota 5 - &tanh graph
 	
 	-- It's meant to be a visual language, sort of like Processing except entirely different.
 
