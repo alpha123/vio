@@ -246,7 +246,7 @@ op_call: {
         SAFE_POP(v)
         EXPECT(v, vv_str)
         if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
-            RAISE(VE_CALL_TO_UNDEFINED_WORD, "Attempted to call '%.*s', but that word is not defined.", v->len, v->s);
+            EXIT(vio_raise_undefined_word(ctx, v->len, v->s));
     }
     fn = ctx->defs[idx];
     PUSH_EXEC_CONTEXT(fn);

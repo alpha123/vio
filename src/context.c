@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include "strings.h"
 #include "context.h"
 
 vio_err_t vio_open(vio_ctx *ctx) {
@@ -62,6 +63,78 @@ vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {
     return err;
 }
 
+struct word_suggest {
+    uint32_t len;
+    const char *s;
+    struct word_suggest *next;
+};
+
+struct word_iter {
+    uint32_t len;
+    const char *s;
+    struct word_suggest *ss;
+};
+
+int find_similar(void *data, const unsigned char *key, uint32_t klen, void *_value) {
+    struct word_iter *wi = (struct word_iter *)data;
+    uint32_t maxdiff = wi->len / 3 || 1;
+    if (vio_sift4_dist(wi->len, wi->s, klen, (const char *)key, 10, -1) <= maxdiff) {
+        struct word_suggest *ws = wi->ss;
+        wi->ss = (struct word_suggest *)malloc(sizeof(struct word_suggest));
+        wi->ss->next = ws;
+        wi->ss->len = klen;
+        wi->ss->s = (const char *)key;
+    }
+    return 0;
+}
+
+struct word_suggest *similar_words(vio_ctx *ctx, uint32_t len, const char *to) {
+    struct word_iter wi;
+    wi.len = len;
+    wi.s = to;
+    wi.ss = NULL;
+    art_iter(&ctx->dict->words, find_similar, &wi);
+    art_iter(ctx->cdict, find_similar, &wi);
+    return wi.ss;
+}
+
+char *similar_words_str(vio_ctx *ctx, uint32_t len, const char *to) {
+    struct word_suggest *ss = similar_words(ctx, len, to), *ws, *ts;
+    char *out;
+    uint32_t olen = 0, i = 0;
+
+    if (ss == NULL) {
+        out = malloc(1);
+        olen = 1;
+    }
+    else {
+        ws = ss;
+        while (ws) {
+            olen += ws->len + 3;
+            ws = ws->next;
+        }
+
+        out = (char *)malloc(olen + 1);
+        ws = ss;
+        while (ws) {
+            strcpy(out + i, "- ");
+            i += 2;
+            strncpy(out + i, ws->s, ws->len);
+            i += ws->len;
+            if (ws->next) {
+                strcpy(out + i, "\n");
+                i += 1;
+            }
+            ts = ws->next;
+            free(ws);
+            ws = ts;
+        }
+    }
+    out[olen - 1] = '\0';
+
+    return out;
+}
+
 vio_err_t vio_raise_undefined_rule(vio_ctx *ctx, vio_val *rule) {
     uint32_t rl = rule->len;
     char *rs = rule->s;
@@ -81,6 +154,20 @@ vio_err_t vio_raise_empty_stack(vio_ctx *ctx, const char *fname, uint32_t min_va
                      "Either you did not push enough values, or something is getting popped "
                      "unexpectedly.\nDid you mean to 'keep' or 'dup' a preceeding noun?",
                      fname, min_vals, plural[min_vals!=1], ctx->sp, plural[ctx->sp!=1], plural[ctx->sp==1]);
+}
+
+vio_err_t vio_raise_undefined_word(vio_ctx *ctx, uint32_t wlen, const char *wname) {
+    char *similar = similar_words_str(ctx, wlen, wname), *sim_msg;
+    if (*similar != '\0')
+        sim_msg = "\nPerhaps it was a typo, and you meant one of the following:\n";
+    else
+        sim_msg = "";
+    vio_raise(ctx, VE_CALL_TO_UNDEFINED_WORD,
+                   "Attempted to call '%.*s', but that word is not defined.\n"
+                   "%s%s",
+                   wlen, wname, sim_msg, similar);
+    free(similar);
+    return VE_CALL_TO_UNDEFINED_WORD;
 }
 
 void vio_register(vio_ctx *ctx, const char *name, vio_function fn, int arity) {

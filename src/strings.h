@@ -9,6 +9,8 @@ vio_err_t vio_strcat(vio_ctx *ctx);
 vio_err_t vio_strsplit(vio_ctx *ctx);
 
 /* various edit distance functions (levenshtein and sift4) */
+uint32_t vio_sift4_dist(uint32_t alen, const char *a, uint32_t blen, const char *b, int maxoff, int maxdist);
+
 vio_err_t vio_edit_dist(vio_ctx *ctx);
 vio_err_t vio_approx_edit_dist(vio_ctx *ctx);
 

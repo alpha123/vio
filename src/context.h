@@ -56,6 +56,8 @@ vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...);
 vio_err_t vio_raise_undefined_rule(vio_ctx *ctx, vio_val *rule);
 /* @returns VE_STACK_EMPTY */
 vio_err_t vio_raise_empty_stack(vio_ctx *ctx, const char *fname, uint32_t min_vals);
+/* @returns VE_CALL_TO_UNDEFINED_WORD */
+vio_err_t vio_raise_undefined_word(vio_ctx *ctx, uint32_t wlen, const char *wname);
 
 /* Return the type of the value on top of the stack.
    Returns 0 if the stack is empty, because using vio_err_t
