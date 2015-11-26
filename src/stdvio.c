@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include "eval.h"
 #include "math.h"
 #include "strings.h"
 #include "stdrules.h"
@@ -16,6 +18,25 @@ vio_err_t vio_drop(vio_ctx *ctx) {
     return 0;
 }
 
+static const char *vio_builtins[] = {
+    "bi: &keep dip eval",
+    "bi*: &dip dip eval",
+    "bi@: dup bi*",
+    "bi2: &keep2 dip eval",
+    "bi2*: &dip2 dip eval",
+    "bi2@: dup bi2*",
+
+    "dip2: swap &dip dip",
+    "dup2: over over",
+    "keep2: &dup2 dip dip2",
+
+    "over: &dup dip swap",
+
+    "preserve: keep swap",
+    "preserve2: keep2 rot rot",
+    0
+};
+
 void vio_load_stdlib(vio_ctx *ctx) {
     vio_load_stdrules(ctx);
 
@@ -29,4 +50,9 @@ void vio_load_stdlib(vio_ctx *ctx) {
 #define REGISTER(f) vio_register(ctx, #f, vio_##f, 1);
     LIST_MATH_UNARY(REGISTER)
 #undef REGISTER
+
+    for (uint32_t i = 0; vio_builtins[i]; ++i) {
+        if (vio_eval(ctx, -1, vio_builtins[i]))
+            fprintf(stderr, "error loading vio stdlib: cannot continue: %s", vio_err_msg(ctx->err));
+    }
 }

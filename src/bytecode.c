@@ -113,7 +113,9 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
         }
         break;
     case 3:
-        if (strncmp(t->s, "dup", 3) == 0)
+        if (strncmp(t->s, "dip", 3) == 0)
+            EMIT_OPCODE(vop_dip);
+        else if (strncmp(t->s, "dup", 3) == 0)
             EMIT_OPCODE(vop_dup);
         else if (strncmp(t->s, "rot", 3) == 0)
             EMIT_OPCODE(vop_rot);
@@ -121,6 +123,8 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
     case 4:
         if (strncmp(t->s, "eval", 4) == 0)
             EMIT_OPCODE(vop_callq);
+        else if (strncmp(t->s, "keep", 4) == 0)
+            EMIT_OPCODE(vop_keep);
         else if (strncmp(t->s, "swap", 4) == 0)
             EMIT_OPCODE(vop_swap);
         break;
@@ -131,16 +135,16 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
             EMIT_OPCODE(vop_pcparse);
         break;
     case 6:
-        if (strncmp(t->s, "vecend", 6) == 0)
-            EMIT_OPCODE(vop_vend);
-        else if (strncmp(t->s, "tagend", 6) == 0)
+        if (strncmp(t->s, "tagend", 6) == 0)
             EMIT_OPCODE(vop_tend);
+        else if (strncmp(t->s, "vecend", 6) == 0)
+            EMIT_OPCODE(vop_vend);
         break;
     case 8:
-        if (strncmp(t->s, "vecstart", 8) == 0)
-            EMIT_OPCODE(vop_vstart);
-        else if (strncmp(t->s, "tagstart", 8) == 0)
+        if (strncmp(t->s, "tagstart", 8) == 0)
             EMIT_OPCODE(vop_tstart);
+        else if (strncmp(t->s, "vecstart", 8) == 0)
+            EMIT_OPCODE(vop_vstart);
         break;
     }
 }

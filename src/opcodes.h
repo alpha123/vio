@@ -47,6 +47,8 @@ vio_opcode vio_opcode_pack(
     X(dup) \
     X(rot) \
     X(swap) \
+    X(dip) \
+    X(keep) \
     X(vstart) \
     X(vend) \
     X(tstart) \
