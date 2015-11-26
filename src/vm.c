@@ -6,6 +6,8 @@
 #include "types.h"
 #include "vm.h"
 
+#define POP(v) (v = ctx->stack[--ctx->sp])
+
 /* return NULL if the stack is empty */
 vio_val *vm_pop(vio_ctx *ctx) {
     if (ctx->sp > 0)
@@ -38,7 +40,7 @@ int safe_push_clone(vio_ctx *ctx, vio_val *v) {
 }
 
 #define EXPECT(v, t) \
-    if (v->what != t) \
+    if ((v)->what != (t)) \
         return VE_STRICT_TYPE_FAIL;
 
 #define CHECK(expr) \
@@ -299,6 +301,25 @@ op_swap:
     ctx->stack[ctx->sp-2] = ctx->stack[ctx->sp-1];
     ctx->stack[ctx->sp-1] = v;
     NEXT;
+op_dip: {
+    vio_val *q;
+    if (ctx->sp < 2) EXIT(vio_raise_empty_stack(ctx, "dip", 2));
+    POP(q);
+    POP(v);
+    EXPECT(q, vv_quot)
+    CHECK(vio_exec(ctx, q->bc));
+    SAFE_PUSH(v)
+    NEXT_MAYBEGC;
+}
+op_keep: {
+    vio_val *q;
+    if (ctx->sp < 2) EXIT(vio_raise_empty_stack(ctx, "keep", 2));
+    POP(q);
+    CHECK(vio_val_clone(ctx, ctx->stack[ctx->sp-1], &v));
+    CHECK(vio_exec(ctx, q->bc));
+    SAFE_PUSH(v);
+    NEXT_MAYBEGC;
+}
 op_vstart:
     CHECK(vio_val_new(ctx, &v, vv_vec));
     v->fresh = 1;

@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include "eval.h"
 #include "math.h"
 #include "strings.h"
 #include "stdrules.h"
@@ -16,6 +18,11 @@ vio_err_t vio_drop(vio_ctx *ctx) {
     return 0;
 }
 
+static const char *vio_builtins[] = {
+    "over: &dup dip swap",
+    0
+};
+
 void vio_load_stdlib(vio_ctx *ctx) {
     vio_load_stdrules(ctx);
 
@@ -29,4 +36,9 @@ void vio_load_stdlib(vio_ctx *ctx) {
 #define REGISTER(f) vio_register(ctx, #f, vio_##f, 1);
     LIST_MATH_UNARY(REGISTER)
 #undef REGISTER
+
+    for (uint32_t i = 0; vio_builtins[i]; ++i) {
+        if (vio_eval(ctx, -1, vio_builtins[i]))
+            fprintf(stderr, "error loading vio stdlib: cannot continue: %s", vio_err_msg(ctx->err));
+    }
 }
