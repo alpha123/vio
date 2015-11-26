@@ -334,9 +334,7 @@ op_pcloadrule:
     else {
         if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
             EXIT(vio_raise_undefined_rule(ctx, v));
-        uint32_t oldsp = ctx->sp;
         CHECK(vio_exec(ctx, ctx->defs[idx]));
-        ctx->sp = oldsp;
     }
     CHECK(vio_pc_loadrule(ctx, v));
     SAFE_PUSH(v)

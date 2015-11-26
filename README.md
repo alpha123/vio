@@ -19,9 +19,17 @@ Features:
 - Many useful built-in functions
 - A nifty REPL web application
 - Ability to load/save VM images (snapshots of the virtual machine state)
-- Simple implementation (~2k semicolons)
+- Simple implementation (~2.3k semicolons)
 - Not terribly slow
 - Few dependencies
+
+Issues:
+
+- Nobody uses it :-(
+- Tricky to compile on Windows
+- Probably buggy
+- Weird
+- Crashes when running the webREPL on Windows
 
 Getting Vio
 ----------------
