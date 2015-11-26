@@ -12,7 +12,7 @@
 #define is_short_comma_combinator(t) ((t)->what == vt_word && (t)->s[0] == ',' && (t)->len > 3)
 #define is_comma_rule(t) (is_short_comma_combinator(t) && (t)->s[1] == '<')
 #define is_comma_matchstr(t) (is_short_comma_combinator(t) && (t)->s[1] == '`')
-#define is_short_quot(t) ((t)->what == vt_word && (t)->len > 1 && (t)->s[0] == '&')
+#define is_short_quot(t) ((t)->what == vt_conj && (t)->s[0] == '&')
 
 #define simple_is_vec_start(t) (is_short_word(t) && (t)->s[0] == '{')
 #define simple_is_vec_end(t) (is_short_word(t) && (t)->s[0] == '}')
@@ -152,8 +152,9 @@ vio_err_t rewrite_shortquot(vio_tok **begin) {
     vio_tok *t = *begin, *last = NULL, *qs, *qe, *move;
     while (t) {
         if (is_short_quot(t)) {
-            memmove(t->s, t->s + 1, t->len - 1); /* remove initial & */
-            --t->len;
+            move = t->next;
+            vio_tok_free(t);
+            t = move;
             
             VIO__ERRIF((qs = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);
             VIO__ERRIF((qe = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);

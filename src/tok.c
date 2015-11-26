@@ -16,7 +16,7 @@ const char *vio_tok_type_name(vio_tok_t type) {
 }
 
 typedef enum { read, quot, esc, digit, dot, angle, btick, msesc, wordc, mod, fail, eof } ret_code;
-typedef enum _vstate_code { bad_state, next, str, stresc, num, tagword, rule, mtstr, mtsesc, word, advb, conj, err, done } state_code;
+typedef enum { bad_state, next, str, stresc, num, tagword, rule, mtstr, mtsesc, word, advb, conj, err, done } state_code;
 
 typedef ret_code (* state_fn)(vio_tokenizer *);
 
@@ -170,6 +170,21 @@ vio_err_t vio_tokenize(vio_tokenizer *st) {
     return st->err;
 }
 
+int can_start_mod(vio_tokenizer *s) {
+    return s->i < s->len - 1 && !isspace(s->s[s->i + 1]) && !isdigit(s->s[s->i + 1]);
+}
+
+int is_mod_char(char c) {
+    switch (c) {
+    case '&': case '^': case '$':
+    case '~': case '#': case '\\':
+    case '/': case '@': case '%':
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 #define READER(name) \
     ret_code read_##name(vio_tokenizer *s) { \
         ret_code ret = 0;
@@ -194,8 +209,12 @@ READER(begin)
     case '.': ++s->i; SETNEXT(dot)
     case '<': ++s->i; SETNEXT(angle)
     case '`': ++s->i; SETNEXT(btick)
-    case ':': ++s->i; SETNEXT(mod)
-    default : SETNEXT(wordc)
+    default:
+        if (can_start_mod(s) && is_mod_char(s->s[s->i])) {
+            ++s->i;
+            SETNEXT(mod)
+        }
+        else SETNEXT(wordc)
     }
 END_READER(begin)
 
@@ -269,11 +288,20 @@ READER(word)
     s->slen = 0;
     if (is_single_char_word(s->s[s->i]))
         s->sbuf[s->slen++] = s->s[s->i++];
-    else while (s->i < s->len && !isspace(s->s[s->i]))
+    else while (s->i < s->len && !isspace(s->s[s->i])) {
+        if (s->s[s->i] == ':' && s->i < s->len - 1 && is_mod_char(s->s[s->i + 1])) {
+            s->i += 2;
+            ret = mod;
+            break;
+        }
+        else if (is_single_char_word(s->s[s->i]))
+            break;
         s->sbuf[s->slen++] = s->s[s->i++];
+    }
     vio_tok_new(vt_word, s, s->sbuf, s->slen);
     s->slen = 0;
-    ret = read;
+    if (ret == 0)
+        ret = read;
 END_READER(word)
 
 READER(rule)
@@ -332,8 +360,8 @@ READER(adverb)
         ret = fail;
     }
     else {
-    	vio_tok_new(vt_adverb, s, s->s + s->i++, 1);
-    	ret = word;
+    	vio_tok_new(vt_adverb, s, s->s + s->i - 1, 1);
+    	ret = read;
     }
 END_READER(adverb)
 
@@ -343,7 +371,7 @@ READER(conj)
         ret = fail;
     }
     else {
-    	vio_tok_new(vt_conj, s, s->s + s->i++, 1);
+    	vio_tok_new(vt_conj, s, s->s + s->i - 1, 1);
     	ret = read;
     }
 END_READER(conj)
