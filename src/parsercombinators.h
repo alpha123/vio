@@ -36,4 +36,10 @@ vio_err_t vio_pc_maybe(vio_ctx *ctx);
 vio_err_t vio_pc_many(vio_ctx *ctx);
 vio_err_t vio_pc_more(vio_ctx *ctx);
 
+/* Generation of tagword ASTs */
+mpc_val_t *vio_mpc_apply_lift(mpc_val_t *x, void *data);
+mpc_val_t *vio_mpc_apply_maybe(mpc_val_t *x, void *data);
+mpc_val_t *vio_mpc_fold(int n, mpc_val_t **xs);
+void vio_mpc_dtor(mpc_val_t *v);
+
 #endif

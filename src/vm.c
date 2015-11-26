@@ -65,6 +65,94 @@ int safe_push_clone(vio_ctx *ctx, vio_val *v) {
 
 #define POP_EXEC_CONTEXT() do{ free(*--ecp); aec = *(ecp - 1); }while(0)
 
+vio_err_t vio_call_cfunc(vio_ctx *ctx, uint32_t nlen, const char *name) {
+    vio_err_t err = 0;
+    vio_function_info *fi;
+    vio_val *a, *b, *vout, *w;
+
+    fi = (vio_function_info *)art_search(ctx->cdict, (const unsigned char *)name, nlen);
+    VIO__RAISEIF(fi == NULL, VE_CALL_TO_UNDEFINED_WORD, "If you're seeing this, something very strange happened.");
+    /* Auto-vectorize functions of arity 1 and 2 */
+    if (fi->arity == 1) {
+        SAFE_POP(a)
+        if (a->what == vv_vec) {
+            CHECK(vio_vec(ctx, &vout, a->vlen * fi->ret_cnt, NULL));
+            for (uint32_t i = 0; i < a->vlen; ++i) {
+                SAFE_PUSH(a->vv[i])
+                CHECK(fi->fn(ctx));
+                for (uint32_t j = 0; j < fi->ret_cnt; ++j) {
+                    SAFE_POP(w)
+                    vout->vv[i * fi->ret_cnt + j] = w;
+                }
+            }
+            SAFE_PUSH(vout)
+        }
+        else {
+            SAFE_PUSH(a)
+            CHECK(fi->fn(ctx));
+        }
+    }
+    else if (fi->arity == 2) {
+        SAFE_POP(a)
+        SAFE_POP(b)
+        if (a->what == vv_vec && b->what == vv_vec) {
+            uint32_t len = a->vlen > b->vlen ? a->vlen : b->vlen;
+            CHECK(vio_vec(ctx, &vout, len * fi->ret_cnt, NULL));
+            for (uint32_t i = 0; i < len; ++i) {
+                SAFE_PUSH(b->vv[i % b->vlen])
+                SAFE_PUSH(a->vv[i % a->vlen])
+                CHECK(fi->fn(ctx));
+                for (uint32_t j = 0; j < fi->ret_cnt; ++j) {
+                    SAFE_POP(w)
+                    vout->vv[i * fi->ret_cnt + j] = w;
+                }
+            }
+            SAFE_PUSH(vout)
+        }
+        else {
+            int swapped = 0;
+            if (b->what == vv_vec) {
+                w = b;
+                b = a;
+                a = w;
+                swapped = 1;
+            }
+            if (a->what == vv_vec) {
+                CHECK(vio_vec(ctx, &vout, a->vlen * fi->ret_cnt, NULL));
+                for (uint32_t i = 0; i < a->vlen; ++i) {
+                    if (swapped) {
+                        SAFE_PUSH(a->vv[i])
+                        SAFE_PUSH(b)
+                    }
+                    else {
+                        SAFE_PUSH(b)
+                        SAFE_PUSH(a->vv[i])
+                    }
+                    CHECK(fi->fn(ctx));
+                    for (uint32_t j = 0; j < fi->ret_cnt; ++j) {
+                        SAFE_POP(w)
+                        vout->vv[i * fi->ret_cnt + j] = w;
+                    }
+                }
+                SAFE_PUSH(vout)
+            }
+            else {
+                SAFE_PUSH(b)
+                SAFE_PUSH(a)
+                CHECK(fi->fn(ctx));
+            }
+        }
+    }
+    else
+        CHECK(fi->fn(ctx));
+
+    EXIT(0);
+
+    error:
+    exit:
+    return err;
+}
+
 int is_fresh_val(vio_val_t type, vio_val *v) {
     return v->what == type && v->fresh;
 }
@@ -163,87 +251,9 @@ op_call: {
     NEXT;
 }
 op_callc: {
-    vio_function_info *fi;
-    vio_val *a, *b, *vout, *w;
     SAFE_POP(v)
     EXPECT(v, vv_str)
-    fi = (vio_function_info *)art_search(ctx->cdict,
-                                    (const unsigned char *)v->s, v->len);
-    if (fi == NULL)
-        RAISE(VE_CALL_TO_UNDEFINED_WORD, "If you're seeing this, something very strange happened.");
-    /* Auto-vectorize functions of arity 1 and 2 */
-    if (fi->arity == 1) {
-        SAFE_POP(a)
-        if (a->what == vv_vec) {
-            CHECK(vio_vec(ctx, &vout, a->vlen * fi->ret_cnt, NULL));
-            for (uint32_t i = 0; i < a->vlen; ++i) {
-                SAFE_PUSH(a->vv[i])
-                CHECK(fi->fn(ctx));
-                for (uint32_t j = 0; j < fi->ret_cnt; ++j) {
-                    SAFE_POP(w)
-                    vout->vv[i * fi->ret_cnt + j] = w;
-                }
-            }
-            SAFE_PUSH(vout)
-        }
-        else {
-            SAFE_PUSH(a)
-            CHECK(fi->fn(ctx));
-        }
-    }
-    else if (fi->arity == 2) {
-        SAFE_POP(a)
-        SAFE_POP(b)
-        if (a->what == vv_vec && b->what == vv_vec) {
-            uint32_t len = a->vlen > b->vlen ? a->vlen : b->vlen;
-            CHECK(vio_vec(ctx, &vout, len * fi->ret_cnt, NULL));
-            for (uint32_t i = 0; i < len; ++i) {
-                SAFE_PUSH(b->vv[i % b->vlen])
-                SAFE_PUSH(a->vv[i % a->vlen])
-                CHECK(fi->fn(ctx));
-                for (uint32_t j = 0; j < fi->ret_cnt; ++j) {
-                    SAFE_POP(w)
-                    vout->vv[i * fi->ret_cnt + j] = w;
-                }
-            }
-            SAFE_PUSH(vout)
-        }
-        else {
-            int swapped = 0;
-            if (b->what == vv_vec) {
-                w = b;
-                b = a;
-                a = w;
-                swapped = 1;
-            }
-            if (a->what == vv_vec) {
-                CHECK(vio_vec(ctx, &vout, a->vlen * fi->ret_cnt, NULL));
-                for (uint32_t i = 0; i < a->vlen; ++i) {
-                    if (swapped) {
-                        SAFE_PUSH(a->vv[i])
-                        SAFE_PUSH(b)
-                    }
-                    else {
-                        SAFE_PUSH(b)
-                        SAFE_PUSH(a->vv[i])
-                    }
-                    CHECK(fi->fn(ctx));
-                    for (uint32_t j = 0; j < fi->ret_cnt; ++j) {
-                        SAFE_POP(w)
-                        vout->vv[i * fi->ret_cnt + j] = w;
-                    }
-                }
-                SAFE_PUSH(vout)
-            }
-            else {
-                SAFE_PUSH(b)
-                SAFE_PUSH(a)
-                CHECK(fi->fn(ctx));
-            }
-        }
-    }
-    else
-        CHECK(fi->fn(ctx));
+    vio_call_cfunc(ctx, v->len, v->s);
     NEXT_MAYBEGC;
 }
 op_retq:
@@ -319,14 +329,16 @@ op_pcmatchstr:
     NEXT_MAYBEGC;
 op_pcloadrule:
     v = EC(consts)[IMM1];
-    /*if (v->p == NULL) {*/
+    if (art_search(ctx->cdict, (const unsigned char *)v->s, v->len))
+        CHECK(vio_call_cfunc(ctx, v->len, v->s));
+    else {
         if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
             EXIT(vio_raise_undefined_rule(ctx, v));
         uint32_t oldsp = ctx->sp;
         CHECK(vio_exec(ctx, ctx->defs[idx]));
-        CHECK(vio_pc_loadrule(ctx, v));
         ctx->sp = oldsp;
-    /*}*/
+    }
+    CHECK(vio_pc_loadrule(ctx, v));
     SAFE_PUSH(v)
     /* Get the actual rule to use for parsing; must be
        reinitialized each time called */
