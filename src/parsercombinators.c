@@ -45,6 +45,12 @@ void vio_mpc_dtor(mpc_val_t *v) {
 }
 
 mpc_val_t *vio_mpc_fold(int n, mpc_val_t **xs) {
+    /* it seems mpc calls fold even with no elements,
+       which means we can't get the vio_ctx.
+       return null here which gets lifted to a
+       0-element vector later. */
+    if (n == 0) return NULL;
+
     struct vio_mpc_val *x, *acc;
     vio_ctx *ctx = ((struct vio_mpc_val *)xs[0])->ctx;
     vio_val *v;
@@ -91,7 +97,6 @@ mpc_val_t *vio_mpc_apply_to(mpc_val_t *x, void *data_) {
         vio_tagword(data->ctx, &v, y->nlen, y->name, 1, z->v);
     y->v = v;
     vio_mpc_val_free(z);
-    vio_mpc_ad_free(data);
     return y;
 }
 
@@ -231,21 +236,17 @@ vio_err_t vio_pc_loadrule(vio_ctx *ctx, vio_val *v) {
     VIO__ERRIF(nulls == NULL, VE_ALLOC_FAIL);
     snprintf(nulls, v->len + 1, "%.*s", v->len, v->s);
     VIO__CHECK(vio_pop_parser(ctx, &ignore_nlen, &ignore_name, &v->p));
+
     mpc_parser_t *p = mpc_new(nulls);
-    mpc_define(p, v->p);
+    struct vio_mpc_apply_data *name = vio_mpc_ad_name(ctx, v->len, v->s);
+    mpc_define(p, mpc_apply_to(v->p, vio_mpc_apply_to, name));
+    vio_mpc_ad_free(name);
     v->p = p;
     return 0;
 
     error:
     if (nulls) free(nulls);
     return err;
-}
-
-/* We need to re-init every time the parser is used
-   because its apply_data gets freed afterwards. */
-vio_err_t vio_pc_initrule(vio_ctx *ctx, vio_val *v, mpc_parser_t **out) {
-    *out = mpc_apply_to(v->p, vio_mpc_apply_to, vio_mpc_ad_name(ctx, v->len, v->s));
-    return 0;
 }
 
 #define BIN_COMBINATOR(name, combine) \
@@ -284,5 +285,5 @@ BIN_COMBINATOR(or, mpc_or(2, a, b))
 
 UN_COMBINATOR(not, mpc_not(a, vio_mpc_dtor))
 UN_COMBINATOR(maybe, mpc_apply_to(mpc_maybe(a), vio_mpc_apply_maybe, ctx))
-UN_COMBINATOR(many, mpc_many(vio_mpc_fold, a))
+UN_COMBINATOR(many, mpc_apply_to(mpc_many(vio_mpc_fold, a), vio_mpc_apply_maybe, ctx))
 UN_COMBINATOR(more, mpc_many1(vio_mpc_fold, a))

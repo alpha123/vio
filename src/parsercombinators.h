@@ -24,7 +24,6 @@ vio_err_t vio_pc_parse(vio_ctx *ctx);
 /* Parser creation */
 vio_err_t vio_pc_str(vio_ctx *ctx);
 vio_err_t vio_pc_loadrule(vio_ctx *ctx, vio_val *v);
-vio_err_t vio_pc_initrule(vio_ctx *ctx, vio_val *v, mpc_parser_t **out);
 
 /* Binary combinators */
 vio_err_t vio_pc_then(vio_ctx *ctx);

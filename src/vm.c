@@ -253,7 +253,7 @@ op_call: {
 op_callc: {
     SAFE_POP(v)
     EXPECT(v, vv_str)
-    vio_call_cfunc(ctx, v->len, v->s);
+    CHECK(vio_call_cfunc(ctx, v->len, v->s));
     NEXT_MAYBEGC;
 }
 op_retq:
@@ -334,15 +334,10 @@ op_pcloadrule:
     else {
         if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
             EXIT(vio_raise_undefined_rule(ctx, v));
-        uint32_t oldsp = ctx->sp;
         CHECK(vio_exec(ctx, ctx->defs[idx]));
-        ctx->sp = oldsp;
     }
     CHECK(vio_pc_loadrule(ctx, v));
     SAFE_PUSH(v)
-    /* Get the actual rule to use for parsing; must be
-       reinitialized each time called */
-    CHECK(vio_pc_initrule(ctx, v, &ctx->stack[ctx->sp-1]->p));
     NEXT_MAYBEGC;
 op_pcthen:
     CHECK(vio_pc_then(ctx));
