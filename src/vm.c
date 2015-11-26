@@ -253,7 +253,7 @@ op_call: {
 op_callc: {
     SAFE_POP(v)
     EXPECT(v, vv_str)
-    vio_call_cfunc(ctx, v->len, v->s);
+    CHECK(vio_call_cfunc(ctx, v->len, v->s));
     NEXT_MAYBEGC;
 }
 op_retq:
@@ -338,9 +338,6 @@ op_pcloadrule:
     }
     CHECK(vio_pc_loadrule(ctx, v));
     SAFE_PUSH(v)
-    /* Get the actual rule to use for parsing; must be
-       reinitialized each time called */
-    CHECK(vio_pc_initrule(ctx, v, &ctx->stack[ctx->sp-1]->p));
     NEXT_MAYBEGC;
 op_pcthen:
     CHECK(vio_pc_then(ctx));
