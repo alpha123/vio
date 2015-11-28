@@ -273,16 +273,23 @@ READER(num)
     }
 END_READER(num)
 
-READER(tagword)
-    ret = read_word(s);
-    s->t->what = vt_tagword;
-END_READER(tagword)
-
 VIO_CONST
 int is_single_char_word(char c) {
     return c == '{' || c == '}' ||
            c == '[' || c == ']';
 }
+
+READER(tagword)
+    s->slen = 0;
+    while (s->i < s->len && !isspace(s->s[s->i])) {
+        s->sbuf[s->slen++] = s->s[s->i++];
+        if (is_single_char_word(s->s[s->i-1]))
+            break;
+    }
+    vio_tok_new(vt_tagword, s, s->sbuf, s->slen);
+    s->slen = 0;
+    ret = read;
+END_READER(tagword)
 
 READER(word)
     s->slen = 0;
