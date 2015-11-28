@@ -12,7 +12,7 @@
 #define is_short_comma_combinator(t) ((t)->what == vt_word && (t)->s[0] == ',' && (t)->len > 3)
 #define is_comma_rule(t) (is_short_comma_combinator(t) && (t)->s[1] == '<')
 #define is_comma_matchstr(t) (is_short_comma_combinator(t) && (t)->s[1] == '`')
-#define is_short_quot(t) ((t)->what == vt_conj && (t)->s[0] == '&')
+#define is_fake_conj(t) ((t)->what == vt_conj && ((t)->s[0] == '&' || (t)->s[0] == '^' || (t)->s[0] == '$'))
 
 #define simple_is_vec_start(t) (is_short_word(t) && (t)->s[0] == '{')
 #define simple_is_vec_end(t) (is_short_word(t) && (t)->s[0] == '}')
@@ -146,13 +146,20 @@ vio_err_t rewrite_short_comma_combinator(vio_tok **begin) {
     return 0;
 }
 
-/* rewrite short quotations &word into '[word]' */
-vio_err_t rewrite_shortquot(vio_tok **begin) {
+/* rewrite the 'fake' conjugations (quote, dip, and keep)
+   into their expanded forms:
+     - &word -> [word]
+     - ^word -> [word] dip
+     - $word -> [word] keep */
+vio_err_t rewrite_fakeconj(vio_tok **begin) {
     vio_err_t err = 0;
-    vio_tok *t = *begin, *last = NULL, *qs, *qe, *move;
+    char which;
+    vio_tok *t = *begin, *last = NULL, *move,
+            *qs = NULL, *qe = NULL, *apply = NULL;
     while (t) {
-        if (is_short_quot(t)) {
+        if (is_fake_conj(t)) {
             move = t->next;
+            which = t->s[0];
             vio_tok_free(t);
             t = move;
             
@@ -173,7 +180,20 @@ vio_err_t rewrite_shortquot(vio_tok **begin) {
             qs->next = t;
             move = t->next;
             t->next = qe;
-            qe->next = move;
+            if (which == '^' || which == '$') {
+                VIO__ERRIF((apply = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);
+                apply->what = vt_word;
+                apply->line = t->line;
+                apply->pos = t->pos;
+                apply->len = which == '^' ? 3 : 4;
+                VIO__ERRIF((apply->s = (char *)malloc(apply->len)) == NULL, VE_ALLOC_FAIL);
+                strcpy(apply->s, which == '^' ? "dip" : "keep");
+                qe->next = apply;
+                apply->next = move;
+                move = apply;
+            }
+            else
+                qe->next = move;
             last = t;
             t = move;
         }
@@ -185,6 +205,9 @@ vio_err_t rewrite_shortquot(vio_tok **begin) {
 
     return 0;
     error:
+    if (qs) free(qs);
+    if (qe) free(qe);
+    if (apply) free(apply);
     return err;
 }
 
@@ -237,7 +260,7 @@ vio_err_t vio_rewrite(vio_tok **t) {
     return
         rewrite_short_comma_combinator(t) ||
         rewrite_matchstr(t) ||
-        rewrite_shortquot(t) ||
+        rewrite_fakeconj(t) ||
         rewrite_tag_vec(t) ||
         rewrite_vec(t);
 }
