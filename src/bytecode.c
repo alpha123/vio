@@ -107,9 +107,6 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
         case '-': EMIT_OPCODE(vop_sub); break;
         case '*': EMIT_OPCODE(vop_mul); break;
         case '/': EMIT_OPCODE(vop_div); break;
-        case '|': EMIT_OPCODE(vop_pcor); break;
-        case ',': EMIT_OPCODE(vop_pcthen); break;
-        case '?': EMIT_OPCODE(vop_pcmaybe); break;
         }
         break;
     case 3:

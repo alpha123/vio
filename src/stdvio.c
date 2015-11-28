@@ -5,12 +5,6 @@
 #include "stdrules.h"
 #include "stdvio.h"
 
-/* using _ instead of ._ can make complicated
-   match patterns look much cleaner */
-vio_err_t anyscore(vio_ctx *ctx) {
-    return vio_push_tag(ctx, 1, "_", 0);
-}
-
 vio_err_t vio_drop(vio_ctx *ctx) {
     if (ctx->sp == 0)
         return vio_raise_empty_stack(ctx, "drop", 1);
@@ -19,18 +13,18 @@ vio_err_t vio_drop(vio_ctx *ctx) {
 }
 
 static const char *vio_builtins[] = {
-    "bi: &keep dip eval",
-    "bi*: &dip dip eval",
+    "bi: ^keep eval",
+    "bi*: ^dip eval",
     "bi@: dup bi*",
-    "bi2: &keep2 dip eval",
-    "bi2*: &dip2 dip eval",
+    "bi2: ^keep2 eval",
+    "bi2*: ^dip2 eval",
     "bi2@: dup bi2*",
 
-    "dip2: swap &dip dip",
+    "dip2: swap ^dip",
     "dup2: over over",
-    "keep2: &dup2 dip dip2",
+    "keep2: ^dup2 dip2",
 
-    "over: &dup dip swap",
+    "over: ^dup swap",
 
     "preserve: keep swap",
     "preserve2: keep2 rot rot",
@@ -40,7 +34,6 @@ static const char *vio_builtins[] = {
 void vio_load_stdlib(vio_ctx *ctx) {
     vio_load_stdrules(ctx);
 
-    vio_register(ctx, "_", anyscore, 0);
     vio_register(ctx, "++", vio_strcat, 2);
     vio_register(ctx, "drop", vio_drop, 0);
 
