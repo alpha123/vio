@@ -183,10 +183,6 @@ struct stack_frame {
     vio_opcode *prog;
     vio_val **consts;
     uint32_t pc;
-    uint32_t ap_base[VIO_MAX_CALL_DEPTH];
-    uint32_t *address_sp;
-
-    struct stack_frame *next;
 };
 
 /* exists entirely to hold a free list of stack_frames
@@ -202,7 +198,6 @@ vio_err_t alloc_faux_stack_frame(struct exec_ctx *_unused_ctx, vio_bytecode *fro
     (*out)->prog = from->prog;
     (*out)->consts = from->consts;
     (*out)->pc = 0;
-    (*out)->address_sp = (*out)->ap_base;
     return 0;
 }
 
