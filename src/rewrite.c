@@ -12,7 +12,6 @@
 #define is_short_comma_combinator(t) ((t)->what == vt_word && (t)->s[0] == ',' && (t)->len > 3)
 #define is_comma_rule(t) (is_short_comma_combinator(t) && (t)->s[1] == '<')
 #define is_comma_matchstr(t) (is_short_comma_combinator(t) && (t)->s[1] == '`')
-#define is_fake_conj(t) ((t)->what == vt_conj && ((t)->s[0] == '&' || (t)->s[0] == '^' || (t)->s[0] == '$'))
 
 #define simple_is_vec_start(t) (is_short_word(t) && (t)->s[0] == '{')
 #define simple_is_vec_end(t) (is_short_word(t) && (t)->s[0] == '}')
@@ -146,56 +145,90 @@ vio_err_t rewrite_short_comma_combinator(vio_tok **begin) {
     return 0;
 }
 
-/* rewrite the 'fake' conjugations (quote, dip, and keep)
-   into their expanded forms:
+#define VIO_MAX_CONJ 10
+
+/* rewrite the short conjugations into their expanded forms:
      - &word -> [word]
      - ^word -> [word] dip
-     - $word -> [word] keep */
-vio_err_t rewrite_fakeconj(vio_tok **begin) {
+     - $word -> [word] keep
+     - \word -> [word] fold
+     - ~/word -> [word] partition */
+vio_err_t rewrite_shortconj(vio_tok **begin) {
     vio_err_t err = 0;
-    char which;
+    char conj[VIO_MAX_CONJ+1], *word;
+    uint32_t i;
     vio_tok *t = *begin, *last = NULL, *move,
             *qs = NULL, *qe = NULL, *apply = NULL;
     while (t) {
-        if (is_fake_conj(t)) {
-            move = t->next;
-            which = t->s[0];
-            vio_tok_free(t);
-            t = move;
-            
-            VIO__ERRIF((qs = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);
-            VIO__ERRIF((qe = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);
-            qs->what = qe->what = vt_word;
-            qs->len = qe->len = 1;
-            qs->line = qe->line = t->line;
-            qs->pos = qe->pos = t->pos;
-            VIO__ERRIF((qs->s = (char *)malloc(1)) == NULL, VE_ALLOC_FAIL);
-            VIO__ERRIF((qe->s = (char *)malloc(1)) == NULL, VE_ALLOC_FAIL);
-            qs->s[0] = '[';
-            qe->s[0] = ']';
-            if (last)
-                last->next = qs;
-            else
-                *begin = qs;
-            qs->next = t;
-            move = t->next;
-            t->next = qe;
-            if (which == '^' || which == '$') {
-                VIO__ERRIF((apply = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);
-                apply->what = vt_word;
-                apply->line = t->line;
-                apply->pos = t->pos;
-                apply->len = which == '^' ? 3 : 4;
-                VIO__ERRIF((apply->s = (char *)malloc(apply->len)) == NULL, VE_ALLOC_FAIL);
-                strcpy(apply->s, which == '^' ? "dip" : "keep");
-                qe->next = apply;
-                apply->next = move;
-                move = apply;
+        if (t->what == vt_conj) {
+            i = 0;
+            while (t->what == vt_conj) {
+                VIO__ERRIF(i == VIO_MAX_CONJ, VE_TOO_MANY_CONJUGATIONS);
+                move = t->next;
+                conj[i++] = t->s[0];
+                vio_tok_free(t);
+                t = move;
             }
-            else
-                qe->next = move;
-            last = t;
-            t = move;
+            conj[i] = '\0';
+
+            i = 0;
+            while (conj[i]) {
+                VIO__ERRIF((qs = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);
+                VIO__ERRIF((qe = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);
+                qs->what = qe->what = vt_word;
+                qs->len = qe->len = 1;
+                qs->line = qe->line = t->line;
+                qs->pos = qe->pos = t->pos;
+                VIO__ERRIF((qs->s = (char *)malloc(1)) == NULL, VE_ALLOC_FAIL);
+                VIO__ERRIF((qe->s = (char *)malloc(1)) == NULL, VE_ALLOC_FAIL);
+                qs->s[0] = '[';
+                qe->s[0] = ']';
+                if (last)
+                    last->next = qs;
+                else
+                    *begin = qs;
+                qs->next = t;
+                move = t->next;
+                t->next = qe;
+                if (conj[i] != '&') {
+                    VIO__ERRIF((apply = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);
+                    apply->what = vt_word;
+                    apply->line = t->line;
+                    apply->pos = t->pos;
+                    if (conj[i + 1] == '/') {
+                        switch (conj[i]) {
+                            case '^': word = "dip"; break;
+                            case '$': word = "preserve"; break;
+                            case '~': word = "partition"; break;
+                            default: word = "";
+                        }
+                        ++i;
+                    }
+                    else switch (conj[i]) {
+                        case '^': word = "dip"; break;
+                        case '$': word = "keep"; break;
+                        case '~': word = "filter"; break;
+                        default: word = "";
+                    }
+                    apply->len = strlen(word);
+                    VIO__ERRIF((apply->s = (char *)malloc(apply->len)) == NULL, VE_ALLOC_FAIL);
+                    strcpy(apply->s, word);
+                    qe->next = apply;
+                    apply->next = move;
+                    move = apply;
+                }
+                else
+                    qe->next = move;
+                if (!conj[i + 1]) {
+                    last = t;
+                    t = move;
+                }
+                else {
+                    last = qs;
+                    t = qs->next;
+                }
+                ++i;
+            }
         }
         else {
             last = t;
@@ -260,7 +293,7 @@ vio_err_t vio_rewrite(vio_tok **t) {
     return
         rewrite_short_comma_combinator(t) ||
         rewrite_matchstr(t) ||
-        rewrite_fakeconj(t) ||
+        rewrite_shortconj(t) ||
         rewrite_tag_vec(t) ||
         rewrite_vec(t);
 }
