@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include "cmp.h"
 #include "eval.h"
 #include "math.h"
 #include "strings.h"
+#include "vecapply.h"
 #include "stdrules.h"
 #include "stdvio.h"
 
@@ -13,6 +15,12 @@ vio_err_t vio_drop(vio_ctx *ctx) {
 }
 
 static const char *vio_builtins[] = {
+    /*"=: cmp [ 0: .t ; _: .f ]",
+    "<: cmp [ = not ] [ &abs bi@ = not ] bi and",
+    "<=: &= &< bi or",
+    ">: <= not",
+    ">=: < not",*/
+    
     "bi: ^keep eval",
     "bi*: ^dip eval",
     "bi@: dup bi*",
@@ -34,8 +42,14 @@ static const char *vio_builtins[] = {
 void vio_load_stdlib(vio_ctx *ctx) {
     vio_load_stdrules(ctx);
 
+    /* -N = non-scalar arity N */
     vio_register(ctx, "++", vio_strcat, 2);
+    vio_register(ctx, "cmp", vio_compare, 2);
+    vio_register(ctx, "vcmp", vio_compare, -2); /* register again with arity -2 to compare vectors directly */
     vio_register(ctx, "drop", vio_drop, 0);
+
+    vio_register(ctx, "fold", vio_fold, -3);
+    vio_register(ctx, "partition", vio_partition, -2);
 
     vio_register(ctx, "edit-dist", vio_edit_dist, 2);
     vio_register(ctx, "str-sim", vio_approx_edit_dist, 2);
@@ -45,7 +59,9 @@ void vio_load_stdlib(vio_ctx *ctx) {
 #undef REGISTER
 
     for (uint32_t i = 0; vio_builtins[i]; ++i) {
-        if (vio_eval(ctx, -1, vio_builtins[i]))
+        if (vio_eval(ctx, -1, vio_builtins[i])) {
             fprintf(stderr, "error loading vio stdlib: cannot continue: %s", vio_err_msg(ctx->err));
+            exit(1);
+        }
     }
 }

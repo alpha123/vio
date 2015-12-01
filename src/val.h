@@ -81,6 +81,11 @@ vio_err_t vio_vec(vio_ctx *ctx, vio_val **out, uint32_t vlen, ...);
 vio_err_t vio_string(vio_ctx *ctx, vio_val **out, uint32_t len, const char *str);
 vio_err_t vio_string0(vio_ctx *ctx, vio_val **out, const char *str);
 
+/* Index an item in a matrix. Uses row-major order by default, but that could
+   change in the future. */
+VIO_CONST
+vio_val *vio_mat_idx(vio_val *mat, uint32_t row, uint32_t col);
+
 vio_err_t vio_coerce(vio_ctx *ctx, vio_val *from, vio_val **to, vio_val_t what);
 
 vio_err_t vio_val_clone(vio_ctx *ctx, vio_val *v, vio_val **out);

@@ -166,6 +166,11 @@ vio_err_t vio_string0(vio_ctx *ctx, vio_val **out, const char *str) {
     return vio_string(ctx, out, strlen(str), str);
 }
 
+VIO_CONST
+vio_val *vio_mat_idx(vio_val *mat, uint32_t row, uint32_t col) {
+    return mat->vv[row * mat->cols + col];
+}
+
 void vio_mark_val(vio_val *v) {
     if (v->mark)
         return;
