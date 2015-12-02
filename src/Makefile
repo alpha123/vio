@@ -33,7 +33,7 @@ opcodes.c parsercombinators.c repl.c rewrite.c serialize.c stdrules.c \
 stdvio.c strings.c tok.c uneval.c val.c vecapply.c vm.c
 SRCS=$(VIO_SRCS) art.c flag.c json.c mpc.c tpl.c civetweb.c
 VIO_HEADERS=$(filter-out repl.h,$(VIO_SRCS:.c=.h))
-WEBREPL_SRCS=webrepl/index.html webrepl/main.js
+WEBREPL_SRCS=webrepl/index.html webrepl/main.js webrepl/wiki.html
 
 ifeq ($(ENABLE_SERVER),yes)
 	VIO_SRCS+=server.c webrepl.c
@@ -78,12 +78,20 @@ $(IVIO): $(OBJS)
 .c.o:
 	$(CC) $(CFLAGS) $(GCCFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
-webrepl: $(WEBREPL_SRCS)
+compress_wiki: compress_wiki.c
+	$(CC) compress_wiki.c lzf_c.c lzf_d.c -o $@
+
+webrepl: $(WEBREPL_SRCS) compress_wiki
 	cd webrepl && \
 	npm install && browserify -t [ babelify --presets [ react es2015 ] ] main.js -o bundle.js && \
 	cd .. && \
 	xxd -i webrepl/index.html webrepl_html.i && \
-	xxd -i webrepl/bundle.js webrepl_js.i
+	xxd -i webrepl/bundle.js webrepl_js.i && \
+	./compress_wiki && \
+	xxd -i webrepl/wiki.html.lzf webrepl_wiki.i && \
+	du -k webrepl/wiki.html | cut -b 1-4 | \
+	xargs expr 1024 '*' | \
+	xargs printf "unsigned int webrepl_wiki_html_len = %d;" >> webrepl_wiki.i
 
 .PHONY: doc
 doc:
