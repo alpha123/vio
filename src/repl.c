@@ -38,7 +38,7 @@
 #define COMPILER "unknown"
 #endif
 
-#define VIO_VERSION "0.0.1-0"
+#define VIO_VERSION "0.0.2-0"
 
 #define VERSION_INFO "This is Vio, version " VIO_VERSION " built with " \
                 COMPILER "." \

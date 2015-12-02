@@ -188,6 +188,10 @@ void vio_mark_val(vio_val *v) {
         for (i = 0; i < l; ++i)
             vio_mark_val(v->vv[i]);
         break;
+    case vv_quot:
+        for (i = 0; i < v->bc->ic; ++i)
+            vio_mark_val(v->bc->consts[i]);
+        break;
     default: break; /* nothing else references anything */
     }
 }

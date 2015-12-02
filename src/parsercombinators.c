@@ -15,7 +15,7 @@ struct vio_mpc_val *vio_mpc_val_new(vio_ctx *ctx, vio_val *v, uint32_t nlen, cha
 }
 
 void vio_mpc_val_free(struct vio_mpc_val *x) {
-    if (x->nlen > 0) free(x->name);
+    /*if (x->nlen > 0) free(x->name);*/
     free(x);
     /* let the gc take care of x->v. */
 }

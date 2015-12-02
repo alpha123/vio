@@ -200,7 +200,8 @@ vio_err_t rewrite_shortconj(vio_tok **begin) {
                             case '^': word = "dip"; break;
                             case '$': word = "preserve"; break;
                             case '~': word = "partition"; break;
-                            default: word = "";
+                            case '\\': word = "foldr"; break;
+                            default: VIO__ERRIF(1, VE_UNKNOWN_CONJUGATION);
                         }
                         ++i;
                     }
@@ -208,7 +209,8 @@ vio_err_t rewrite_shortconj(vio_tok **begin) {
                         case '^': word = "dip"; break;
                         case '$': word = "keep"; break;
                         case '~': word = "filter"; break;
-                        default: word = "";
+                        case '\\': word = "fold"; break;
+                        default: VIO__ERRIF(1, VE_UNKNOWN_CONJUGATION);
                     }
                     apply->len = strlen(word);
                     VIO__ERRIF((apply->s = (char *)malloc(apply->len)) == NULL, VE_ALLOC_FAIL);

@@ -65,7 +65,11 @@ int safe_push_clone(vio_ctx *ctx, vio_val *v) {
     CHECK(alloc_faux_stack_frame(&execctx, c, &aec)); \
     *ecp++ = aec; }while(0)
 
-#define POP_EXEC_CONTEXT() do{ free(*--ecp); aec = *(ecp - 1); }while(0)
+#define POP_EXEC_CONTEXT() do{ \
+    if (ecp-1 == ec_stack) \
+        EXIT(0); \
+    free(*--ecp); \
+    aec = *(ecp - 1); }while(0)
 
 vio_err_t vio_call_cfunc(vio_ctx *ctx, uint32_t nlen, const char *name) {
     vio_err_t err = 0;
@@ -210,6 +214,7 @@ vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
     struct exec_ctx execctx;
     struct stack_frame *ec_stack[VIO_MAX_CALL_DEPTH];
     struct stack_frame *aec, **ecp = ec_stack;
+    ctx->defs[ctx->defp++] = bc;
     PUSH_EXEC_CONTEXT(bc);
 
 #define INIT_DISPATCH_TABLE(instr) [vop_##instr] = &&op_##instr,
@@ -358,5 +363,6 @@ op_nop:
     NEXT;
 
     exit:
+    --ctx->defp;
     return err;
 }
