@@ -37,8 +37,10 @@ vio_err_t vio_dump_parser(mpc_parser_t *p, FILE *fp) {
     SAVE("csc", &p->retained, &p->name, &p->type);
     switch (p->type) {
     case MPC_TYPE_EXPECT:
-        SAVE("s", &p->data.expect.m);
-        vio_dump_parser(p->data.expect.x, fp);
+        VIO__CHECK(vio_dump_parser(p->data.expect.x, fp));
+        break;
+    case MPC_TYPE_APPLY_TO:
+        VIO__CHECK(vio_dump_parser(p->data.apply_to.x, fp));
         break;
     case MPC_TYPE_SINGLE:
         SAVE("c", &p->data.single.x);
@@ -115,17 +117,22 @@ vio_err_t vio_dump_val(vio_val *v, FILE *fp) {
         vio_dump_bytecode(v->bc, fp);
         break;
     case vv_parser: {
-        /* Don't save expect or apply_to parsers since those types
-           get automatically created when loaded. */
         mpc_parser_t *q = v->p;
+        /* Don't save uninitialized parsers, since they're actually functions */
+        char is_initialized = q != NULL;
         SAVESTR(v, "", NULL);
-        while (q->type == MPC_TYPE_APPLY_TO || q->type == MPC_TYPE_EXPECT) {
-            if (q->type == MPC_TYPE_APPLY_TO)
-                q = q->data.apply_to.x;
-            else
-                q = q->data.expect.x;
+        SAVE("c", &is_initialized);
+        if (is_initialized) {
+            /* Don't save expect or apply_to parsers since those types
+               get automatically created when loaded. */
+            while (q->type == MPC_TYPE_APPLY_TO || q->type == MPC_TYPE_EXPECT) {
+                if (q->type == MPC_TYPE_APPLY_TO)
+                    q = q->data.apply_to.x;
+                else
+                    q = q->data.expect.x;
+            }
+            vio_dump_parser(q, fp);
         }
-        vio_dump_parser(q, fp);
         break;
     }
     case vv_str:
@@ -173,42 +180,82 @@ vio_err_t vio_load_top(vio_ctx *ctx, FILE *fp) {
     return 0;
 }
 
+#define PROMOTE(parser) mpc_apply_to((parser), vio_mpc_apply_lift, ctx)
+
 vio_err_t vio_load_parser(vio_ctx *ctx, mpc_parser_t **out, FILE *fp) {
     vio_err_t err = 0;
     tpl_node *tn;
     int fd = fileno(fp), pcnt;
-    char retained, *name, type, *s;
+    char retained, *name, type, *s, c[2];
     mpc_parser_t *p, *a, *b;
     LOAD("csc", &retained, &name, &type);
     switch (type) {
     case MPC_TYPE_EXPECT:
-        LOAD("s", &s);
-        VIO__CHECK(vio_load_parser(ctx, &a, fp));
-        p = mpc_expect(a, s);
+    case MPC_TYPE_APPLY_TO:
+        VIO__CHECK(vio_load_parser(ctx, &p, fp));
         break;
     case MPC_TYPE_SINGLE:
-        LOAD("c", s);
-        p = mpc_apply_to(mpc_char(*s), vio_mpc_apply_lift, ctx);
+        LOAD("c", c);
+        p = PROMOTE(mpc_char(*c));
+        break;
+    case MPC_TYPE_RANGE:
+        LOAD("cc", c, c + 1);
+        p = PROMOTE(mpc_range(c[0], c[1]));
         break;
     case MPC_TYPE_STRING:
         LOAD("s", &s);
-        p = mpc_apply_to(mpc_string(s), vio_mpc_apply_lift, ctx);
+        p = PROMOTE(mpc_string(s));
         break;
-    case MPC_TYPE_AND:
-        /* At the moment, only support loading 2 parsers in certain combinators */
+    case MPC_TYPE_ONEOF:
+        LOAD("s", &s);
+        p = PROMOTE(mpc_oneof(s));
+        break;
+    case MPC_TYPE_NONEOF:
+        LOAD("s", &s);
+        p = PROMOTE(mpc_noneof(s));
+        break;
+    case MPC_TYPE_MAYBE:
+        VIO__CHECK(vio_load_parser(ctx, &a, fp));
+        p = mpc_apply_to(mpc_maybe(a), vio_mpc_apply_maybe, ctx);
+        break;
+    case MPC_TYPE_NOT:
+        VIO__CHECK(vio_load_parser(ctx, &a, fp));
+        p = mpc_not(a, vio_mpc_dtor);
+        break;
+    case MPC_TYPE_MANY:
         LOAD("i", &pcnt);  /* ignore */
         VIO__CHECK(vio_load_parser(ctx, &a, fp));
-        VIO__CHECK(vio_load_parser(ctx, &b, fp));
-        p = mpc_and(2, vio_mpc_fold, a, b, vio_mpc_dtor);
+        p = mpc_apply_to(mpc_many(vio_mpc_fold, a), vio_mpc_apply_maybe, ctx);
+        break;
+    case MPC_TYPE_MANY1:
+        LOAD("i", &pcnt);  /* ignore */
+        VIO__CHECK(vio_load_parser(ctx, &a, fp));
+        p = mpc_many1(vio_mpc_fold, a);
+        break;
+    case MPC_TYPE_COUNT:
+        LOAD("i", &pcnt);  /* don't ignore this time! */
+        VIO__CHECK(vio_load_parser(ctx, &a, fp));
+        p = mpc_count(pcnt, vio_mpc_fold, a, vio_mpc_dtor);
         break;
     case MPC_TYPE_OR:
+        /* At the moment, only support loading 2 parsers in certain combinators
+           TODO perhaps edit mpc to support passing arrays of parsers in addition
+           to varargs, or do a fold over the loaded parsers and mpc_(and|or) each
+           pair together. */
         LOAD("i", &pcnt);  /* ignore */
         VIO__CHECK(vio_load_parser(ctx, &a, fp));
         VIO__CHECK(vio_load_parser(ctx, &b, fp));
         p = mpc_or(2, a, b);
         break;
+    case MPC_TYPE_AND:
+        LOAD("i", &pcnt);  /* ignore */
+        VIO__CHECK(vio_load_parser(ctx, &a, fp));
+        VIO__CHECK(vio_load_parser(ctx, &b, fp));
+        p = mpc_and(2, vio_mpc_fold, a, b, vio_mpc_dtor);
+        break;
     }
 
+    free(s);
     p->retained = retained;
     p->name = name;
     *out = p;
@@ -241,10 +288,16 @@ vio_err_t vio_load_val(vio_ctx *ctx, vio_val **out, FILE *fp) {
     case vv_quot:
         vio_load_bytecode(ctx, &v->bc, fp);
         break;
-    case vv_parser:
+    case vv_parser: {
         LOADSTR(v, "", NULL);
-        VIO__CHECK(vio_load_parser(ctx, &v->p, fp));
+        char is_initialized;
+        LOAD("c", &is_initialized);
+        if (is_initialized)
+            VIO__CHECK(vio_load_parser(ctx, &v->p, fp));
+        else
+            v->p = NULL;
         break;
+    }
     case vv_str:
         LOADSTR(v, "", NULL);
         break;
