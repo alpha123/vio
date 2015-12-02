@@ -7,6 +7,8 @@
 #include "mpc_private.h"
 #include "mpc.h"
 #include "tpl.h"
+#include "parsercombinators.h"
+#include "stdvio.h"
 #include "uneval.h"
 #include "serialize.h"
 
@@ -112,10 +114,20 @@ vio_err_t vio_dump_val(vio_val *v, FILE *fp) {
     case vv_quot:
         vio_dump_bytecode(v->bc, fp);
         break;
-    case vv_parser:
+    case vv_parser: {
+        /* Don't save expect or apply_to parsers since those types
+           get automatically created when loaded. */
+        mpc_parser_t *q = v->p;
         SAVESTR(v, "", NULL);
-        vio_dump_parser(v->p, fp);
+        while (q->type == MPC_TYPE_APPLY_TO || q->type == MPC_TYPE_EXPECT) {
+            if (q->type == MPC_TYPE_APPLY_TO)
+                q = q->data.apply_to.x;
+            else
+                q = q->data.expect.x;
+        }
+        vio_dump_parser(q, fp);
         break;
+    }
     case vv_str:
         SAVESTR(v, "", NULL);
         break;
@@ -161,6 +173,51 @@ vio_err_t vio_load_top(vio_ctx *ctx, FILE *fp) {
     return 0;
 }
 
+vio_err_t vio_load_parser(vio_ctx *ctx, mpc_parser_t **out, FILE *fp) {
+    vio_err_t err = 0;
+    tpl_node *tn;
+    int fd = fileno(fp), pcnt;
+    char retained, *name, type, *s;
+    mpc_parser_t *p, *a, *b;
+    LOAD("csc", &retained, &name, &type);
+    switch (type) {
+    case MPC_TYPE_EXPECT:
+        LOAD("s", &s);
+        VIO__CHECK(vio_load_parser(ctx, &a, fp));
+        p = mpc_expect(a, s);
+        break;
+    case MPC_TYPE_SINGLE:
+        LOAD("c", s);
+        p = mpc_apply_to(mpc_char(*s), vio_mpc_apply_lift, ctx);
+        break;
+    case MPC_TYPE_STRING:
+        LOAD("s", &s);
+        p = mpc_apply_to(mpc_string(s), vio_mpc_apply_lift, ctx);
+        break;
+    case MPC_TYPE_AND:
+        /* At the moment, only support loading 2 parsers in certain combinators */
+        LOAD("i", &pcnt);  /* ignore */
+        VIO__CHECK(vio_load_parser(ctx, &a, fp));
+        VIO__CHECK(vio_load_parser(ctx, &b, fp));
+        p = mpc_and(2, vio_mpc_fold, a, b, vio_mpc_dtor);
+        break;
+    case MPC_TYPE_OR:
+        LOAD("i", &pcnt);  /* ignore */
+        VIO__CHECK(vio_load_parser(ctx, &a, fp));
+        VIO__CHECK(vio_load_parser(ctx, &b, fp));
+        p = mpc_or(2, a, b);
+        break;
+    }
+
+    p->retained = retained;
+    p->name = name;
+    *out = p;
+    return 0;
+
+    error:
+    return err;
+}
+
 vio_err_t vio_load_val(vio_ctx *ctx, vio_val **out, FILE *fp) {
     vio_err_t err = 0;
     tpl_node *tn;
@@ -185,6 +242,8 @@ vio_err_t vio_load_val(vio_ctx *ctx, vio_val **out, FILE *fp) {
         vio_load_bytecode(ctx, &v->bc, fp);
         break;
     case vv_parser:
+        LOADSTR(v, "", NULL);
+        VIO__CHECK(vio_load_parser(ctx, &v->p, fp));
         break;
     case vv_str:
         LOADSTR(v, "", NULL);
@@ -269,6 +328,9 @@ struct savedata {
 };
 
 int save_def(void *data, const unsigned char *key, uint32_t klen, void *val) {
+    if (vio_is_builtin(klen, (const char *)key))
+        return 0;
+
     vio_err_t err = 0;
     struct savedata *sd = (struct savedata *)data;
     vio_ctx *ctx = sd->ctx;
@@ -280,6 +342,7 @@ int save_def(void *data, const unsigned char *key, uint32_t klen, void *val) {
     SAVE("c#u", (char *)key, klen, &def_idx);
     VIO__CHECK(vio_dump_bytecode(bc, sd->fp));
     return 0;
+
     error:
     return err;
 }
@@ -289,7 +352,7 @@ vio_err_t vio_dump_dict(vio_ctx *ctx, FILE *fp) {
     int fd = fileno(fp);
     tpl_node *tn;
 
-    uint64_t dict_sz = art_size(&ctx->dict->words);
+    uint64_t dict_sz = art_size(&ctx->dict->words) - vio_builtin_count();
     SAVE("U", &dict_sz);
     struct savedata sd = { .fp = fp, .ctx = ctx };
     if ((err = (vio_err_t)art_iter(&ctx->dict->words, save_def, &sd)))
