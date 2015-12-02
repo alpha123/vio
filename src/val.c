@@ -166,6 +166,11 @@ vio_err_t vio_string0(vio_ctx *ctx, vio_val **out, const char *str) {
     return vio_string(ctx, out, strlen(str), str);
 }
 
+VIO_CONST
+vio_val *vio_mat_idx(vio_val *mat, uint32_t row, uint32_t col) {
+    return mat->vv[row * mat->cols + col];
+}
+
 void vio_mark_val(vio_val *v) {
     if (v->mark)
         return;
@@ -182,6 +187,10 @@ void vio_mark_val(vio_val *v) {
         l = v->rows * v->cols;
         for (i = 0; i < l; ++i)
             vio_mark_val(v->vv[i]);
+        break;
+    case vv_quot:
+        for (i = 0; i < v->bc->ic; ++i)
+            vio_mark_val(v->bc->consts[i]);
         break;
     default: break; /* nothing else references anything */
     }

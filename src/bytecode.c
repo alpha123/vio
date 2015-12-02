@@ -107,9 +107,6 @@ void emit_builtin(vio_ctx *ctx, vio_tok *t, vio_bytecode *bc) {
         case '-': EMIT_OPCODE(vop_sub); break;
         case '*': EMIT_OPCODE(vop_mul); break;
         case '/': EMIT_OPCODE(vop_div); break;
-        case '|': EMIT_OPCODE(vop_pcor); break;
-        case ',': EMIT_OPCODE(vop_pcthen); break;
-        case '?': EMIT_OPCODE(vop_pcmaybe); break;
         }
         break;
     case 3:
@@ -296,10 +293,8 @@ vio_err_t vio_emit(vio_ctx *ctx, vio_tok *t, vio_bytecode **out) {
 
 void vio_bytecode_free(vio_bytecode *bc) {
     free(bc->prog);
-    /* consts are copied before pushed onto the stack and not garbage collected
-       (which would run into problems with quotations). */
-    for (uint32_t i = 0; i < bc->ic; ++i)
-        vio_val_free(bc->consts[i]);
+    /* Don't free the values of bc->consts here, since they are allocated
+       normally with vio_val_new and thus get marked and swept. */
     free(bc->consts);
     free(bc);
 }

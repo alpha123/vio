@@ -54,12 +54,6 @@ vio_opcode vio_opcode_pack(
     X(tstart) \
     X(tend) \
     X(pcparse) \
-    X(pcor) \
-    X(pcthen) \
-    X(pcnot) \
-    X(pcmaybe) \
-    X(pcmany) \
-    X(pcmore) \
     X(pcmatchstr) \
     X(pcloadrule) \
     X_(nop)

@@ -15,7 +15,7 @@ struct vio_mpc_val *vio_mpc_val_new(vio_ctx *ctx, vio_val *v, uint32_t nlen, cha
 }
 
 void vio_mpc_val_free(struct vio_mpc_val *x) {
-    if (x->nlen > 0) free(x->name);
+    /*if (x->nlen > 0) free(x->name);*/
     free(x);
     /* let the gc take care of x->v. */
 }
@@ -30,8 +30,9 @@ struct vio_mpc_apply_data *vio_mpc_ad_name(vio_ctx *ctx, uint32_t nlen, char *na
     struct vio_mpc_apply_data *d = (struct vio_mpc_apply_data *)malloc(sizeof(struct vio_mpc_apply_data));
     d->ctx = ctx;
     d->nlen = nlen;
-    d->name = (char *)malloc(nlen);
-    memcpy(d->name, name, nlen);
+    d->name = nlen == 0 ? NULL : (char *)malloc(nlen);
+    if (d->name)
+        memcpy(d->name, name, nlen);
     return d;
 }
 
@@ -97,6 +98,7 @@ mpc_val_t *vio_mpc_apply_to(mpc_val_t *x, void *data_) {
         vio_tagword(data->ctx, &v, y->nlen, y->name, 1, z->v);
     y->v = v;
     vio_mpc_val_free(z);
+    vio_mpc_ad_free(data);
     return y;
 }
 
@@ -232,19 +234,21 @@ vio_err_t vio_pc_str(vio_ctx *ctx) {
 vio_err_t vio_pc_loadrule(vio_ctx *ctx, vio_val *v) {
     vio_err_t err = 0;
     uint32_t ignore_nlen;
-    char *ignore_name, *nulls = (char *)malloc(v->len + 1);
+    char *ignore_name, *nulls = (char *)malloc(v->len);
+    struct vio_mpc_apply_data *name = NULL;
     VIO__ERRIF(nulls == NULL, VE_ALLOC_FAIL);
-    snprintf(nulls, v->len + 1, "%.*s", v->len, v->s);
+    snprintf(nulls, v->len, "%.*s", v->len, v->s);
     VIO__CHECK(vio_pop_parser(ctx, &ignore_nlen, &ignore_name, &v->p));
 
     mpc_parser_t *p = mpc_new(nulls);
-    struct vio_mpc_apply_data *name = vio_mpc_ad_name(ctx, v->len, v->s);
+    name = vio_mpc_ad_name(ctx, v->len, v->s);
     mpc_define(p, mpc_apply_to(v->p, vio_mpc_apply_to, name));
-    vio_mpc_ad_free(name);
+    free(nulls);
     v->p = p;
     return 0;
 
     error:
+    if (name) vio_mpc_ad_free(name);
     if (nulls) free(nulls);
     return err;
 }

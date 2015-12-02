@@ -65,7 +65,11 @@ int safe_push_clone(vio_ctx *ctx, vio_val *v) {
     CHECK(alloc_faux_stack_frame(&execctx, c, &aec)); \
     *ecp++ = aec; }while(0)
 
-#define POP_EXEC_CONTEXT() do{ free(*--ecp); aec = *(ecp - 1); }while(0)
+#define POP_EXEC_CONTEXT() do{ \
+    if (ecp-1 == ec_stack) \
+        EXIT(0); \
+    free(*--ecp); \
+    aec = *(ecp - 1); }while(0)
 
 vio_err_t vio_call_cfunc(vio_ctx *ctx, uint32_t nlen, const char *name) {
     vio_err_t err = 0;
@@ -183,10 +187,6 @@ struct stack_frame {
     vio_opcode *prog;
     vio_val **consts;
     uint32_t pc;
-    uint32_t ap_base[VIO_MAX_CALL_DEPTH];
-    uint32_t *address_sp;
-
-    struct stack_frame *next;
 };
 
 /* exists entirely to hold a free list of stack_frames
@@ -202,7 +202,6 @@ vio_err_t alloc_faux_stack_frame(struct exec_ctx *_unused_ctx, vio_bytecode *fro
     (*out)->prog = from->prog;
     (*out)->consts = from->consts;
     (*out)->pc = 0;
-    (*out)->address_sp = (*out)->ap_base;
     return 0;
 }
 
@@ -215,6 +214,7 @@ vio_err_t vio_exec(vio_ctx *ctx, vio_bytecode *bc) {
     struct exec_ctx execctx;
     struct stack_frame *ec_stack[VIO_MAX_CALL_DEPTH];
     struct stack_frame *aec, **ecp = ec_stack;
+    ctx->defs[ctx->defp++] = bc;
     PUSH_EXEC_CONTEXT(bc);
 
 #define INIT_DISPATCH_TABLE(instr) [vop_##instr] = &&op_##instr,
@@ -269,16 +269,12 @@ op_reljmp:
     EC(pc) += IMM1 * (-2 * IMM2 + 1);
     NEXT;
 op_add:
-    if (vio_what(ctx) == vv_parser)
-        goto op_pcmore;
     CHECK(vio_add(ctx));
     NEXT_MAYBEGC;
 op_sub:
     CHECK(vio_sub(ctx));
     NEXT_MAYBEGC;
 op_mul:
-    if (vio_what(ctx) == vv_parser)
-        goto op_pcmany;
     CHECK(vio_mul(ctx));
     NEXT_MAYBEGC;
 op_div:
@@ -316,8 +312,9 @@ op_keep: {
     if (ctx->sp < 2) EXIT(vio_raise_empty_stack(ctx, "keep", 2));
     POP(q);
     CHECK(vio_val_clone(ctx, ctx->stack[ctx->sp-1], &v));
+    EXPECT(q, vv_quot)
     CHECK(vio_exec(ctx, q->bc));
-    SAFE_PUSH(v);
+    SAFE_PUSH(v)
     NEXT_MAYBEGC;
 }
 op_vstart:
@@ -350,37 +347,22 @@ op_pcmatchstr:
     NEXT_MAYBEGC;
 op_pcloadrule:
     v = EC(consts)[IMM1];
-    if (art_search(ctx->cdict, (const unsigned char *)v->s, v->len))
-        CHECK(vio_call_cfunc(ctx, v->len, v->s));
-    else {
-        if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
-            EXIT(vio_raise_undefined_rule(ctx, v));
-        CHECK(vio_exec(ctx, ctx->defs[idx]));
+    if (v->p == NULL) {
+        if (art_search(ctx->cdict, (const unsigned char *)v->s, v->len))
+            CHECK(vio_call_cfunc(ctx, v->len, v->s));
+        else {
+            if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
+                EXIT(vio_raise_undefined_rule(ctx, v));
+            CHECK(vio_exec(ctx, ctx->defs[idx]));
+        }
+        CHECK(vio_pc_loadrule(ctx, v));
     }
-    CHECK(vio_pc_loadrule(ctx, v));
-    SAFE_PUSH(v)
-    NEXT_MAYBEGC;
-op_pcthen:
-    CHECK(vio_pc_then(ctx));
-    NEXT_MAYBEGC;
-op_pcor:
-    CHECK(vio_pc_or(ctx));
-    NEXT_MAYBEGC;
-op_pcnot:
-    CHECK(vio_pc_not(ctx));
-    NEXT_MAYBEGC;
-op_pcmaybe:
-    CHECK(vio_pc_maybe(ctx));
-    NEXT_MAYBEGC;
-op_pcmany:
-    CHECK(vio_pc_many(ctx));
-    NEXT_MAYBEGC;
-op_pcmore:
-    CHECK(vio_pc_more(ctx));
+    safe_push_clone(ctx, v);
     NEXT_MAYBEGC;
 op_nop:
     NEXT;
 
     exit:
+    --ctx->defp;
     return err;
 }

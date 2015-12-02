@@ -1,15 +1,11 @@
 #include <stdio.h>
+#include "cmp.h"
 #include "eval.h"
 #include "math.h"
 #include "strings.h"
+#include "vecapply.h"
 #include "stdrules.h"
 #include "stdvio.h"
-
-/* using _ instead of ._ can make complicated
-   match patterns look much cleaner */
-vio_err_t anyscore(vio_ctx *ctx) {
-    return vio_push_tag(ctx, 1, "_", 0);
-}
 
 vio_err_t vio_drop(vio_ctx *ctx) {
     if (ctx->sp == 0)
@@ -19,18 +15,24 @@ vio_err_t vio_drop(vio_ctx *ctx) {
 }
 
 static const char *vio_builtins[] = {
-    "bi: &keep dip eval",
-    "bi*: &dip dip eval",
+    /*"=: cmp [ 0: .t ; _: .f ]",
+    "<: cmp [ = not ] [ &abs bi@ = not ] bi and",
+    "<=: &= &< bi or",
+    ">: <= not",
+    ">=: < not",*/
+    
+    "bi: ^keep eval",
+    "bi*: ^dip eval",
     "bi@: dup bi*",
-    "bi2: &keep2 dip eval",
-    "bi2*: &dip2 dip eval",
+    "bi2: ^keep2 eval",
+    "bi2*: ^dip2 eval",
     "bi2@: dup bi2*",
 
-    "dip2: swap &dip dip",
+    "dip2: swap ^dip",
     "dup2: over over",
-    "keep2: &dup2 dip dip2",
+    "keep2: ^dup2 dip2",
 
-    "over: &dup dip swap",
+    "over: ^dup swap",
 
     "preserve: keep swap",
     "preserve2: keep2 rot rot",
@@ -40,9 +42,14 @@ static const char *vio_builtins[] = {
 void vio_load_stdlib(vio_ctx *ctx) {
     vio_load_stdrules(ctx);
 
-    vio_register(ctx, "_", anyscore, 0);
+    /* -N = non-scalar arity N */
     vio_register(ctx, "++", vio_strcat, 2);
+    vio_register(ctx, "cmp", vio_compare, 2);
+    vio_register(ctx, "vcmp", vio_compare, -2); /* register again with arity -2 to compare vectors directly */
     vio_register(ctx, "drop", vio_drop, 0);
+
+    vio_register(ctx, "fold", vio_fold, -3);
+    vio_register(ctx, "partition", vio_partition, -2);
 
     vio_register(ctx, "edit-dist", vio_edit_dist, 2);
     vio_register(ctx, "str-sim", vio_approx_edit_dist, 2);
@@ -52,7 +59,9 @@ void vio_load_stdlib(vio_ctx *ctx) {
 #undef REGISTER
 
     for (uint32_t i = 0; vio_builtins[i]; ++i) {
-        if (vio_eval(ctx, -1, vio_builtins[i]))
+        if (vio_eval(ctx, -1, vio_builtins[i])) {
             fprintf(stderr, "error loading vio stdlib: cannot continue: %s", vio_err_msg(ctx->err));
+            exit(1);
+        }
     }
 }
