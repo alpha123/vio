@@ -5,10 +5,12 @@
 #include "server.h"
 #include "serialize.h"
 #include "stdvio.h"
+#include "lzf.h"
 #include "webrepl.h"
 
 #include "webrepl_html.i"
 #include "webrepl_js.i"
+#include "webrepl_wiki.i"
 
 struct ctx_info {
     char *image_file;
@@ -40,6 +42,19 @@ int vio_webrepl_serve(struct mg_connection *conn, void *_cbdata) {
 int vio_webrepl_serve_js(struct mg_connection *conn, void *_cbdata) {
     mg_printf(conn, "HTTP/1.1 200 OK\r\nContent-type: application/javascriptr\n\r\n");
     mg_write(conn, webrepl_bundle_js, webrepl_bundle_js_len);
+    return 1;
+}
+
+int vio_webrepl_serve_wiki(struct mg_connection *conn, void *_cbdata) {
+    uint8_t *data = malloc(webrepl_wiki_html_len);
+    uint32_t out_len = lzf_decompress(
+        webrepl_wiki_html_lzf, webrepl_wiki_html_lzf_len,
+        data, webrepl_wiki_html_len);
+
+    mg_printf(conn, "HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n");
+    mg_write(conn, data, out_len);
+    free(data);
+
     return 1;
 }
 
