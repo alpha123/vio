@@ -6,6 +6,7 @@
 #include "server.h"
 #include "serialize.h"
 #include "stdvio.h"
+#include "divsufsort.h"
 #include "fse.h"
 #include "lzf.h"
 #include "webrepl.h"
@@ -62,11 +63,18 @@ int vio_webrepl_serve_wiki(struct mg_connection *conn, void *_cbdata) {
     else {
         uint32_t in_len = webrepl_wiki_html_lzf_len, out_len = webrepl_wiki_html_len;
         uint8_t *out = malloc(out_len), *in = webrepl_wiki_html_lzf;
-        /*in_len = FSE_decompress(out, out_len, in, in_len);
+        saint_t idx = in[0] + ((saint_t)in[1] << 8) + ((saint_t)in[2] << 16) + ((saint_t)in[3] << 24);
+        in += 4;
+        in_len -= 4;
+/* buggy */
+#if 0
+        in_len = FSE_decompress(out, out_len, in, in_len);
         if (FSE_isError(in_len))
             printf("\n\nUH OH!\n%s\n\n", FSE_getErrorName(in_len));
-        in = out;*/
+        in = out;
+#endif
         out_len = lzf_decompress(in, in_len, out, out_len);
+        inverse_bw_transform(out, out, NULL, out_len, idx);
 
         mg_printf(conn,
                   "HTTP/1.1 200 OK\r\n"
