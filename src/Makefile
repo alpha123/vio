@@ -2,7 +2,6 @@ DEBUG=yes
 ENABLE_SERVER=yes
 
 USE_SYSTEM_LINENOISE=no
-USE_SYSTEM_LZF=no
 USE_SYSTEM_DIVSUFSORT=no
 USE_SYSTEM_SQLITE=no
 
@@ -18,6 +17,7 @@ endif
 
 CFLAGS+=-std=gnu11 -Wall -msse4
 CFLAGS+=-DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION
+CFLAGS+=-DFSE_MAX_MEMORY_USAGE=20 -DFSE_TABLELOG_ABSOLUTE_MAX=20
 ifeq ($(DEBUG),yes)
 	CFLAGS+=-g -DDEBUG
 else
@@ -31,7 +31,7 @@ LIBS=-lm -lgmp -l$(BLAS_IMPL)
 VIO_SRCS=bytecode.c cmp.c context.c dict.c error.c eval.c gc.c math.c \
 opcodes.c parsercombinators.c repl.c rewrite.c serialize.c stdrules.c \
 stdvio.c strings.c tok.c uneval.c val.c vecapply.c vm.c
-SRCS=$(VIO_SRCS) art.c flag.c json.c mpc.c tpl.c civetweb.c
+SRCS=$(VIO_SRCS) art.c flag.c fse.c json.c lzf_c.c lzf_d.c mpc.c tpl.c civetweb.c
 VIO_HEADERS=$(filter-out repl.h,$(VIO_SRCS:.c=.h))
 WEBREPL_SRCS=webrepl/index.html webrepl/main.js webrepl/wiki.html
 
@@ -46,12 +46,6 @@ ifeq ($(USE_SYSTEM_LINENOISE),no)
 else
 	LIBS+=-llinenoise
 	CFLAGS+=-DUSE_SYSTEM_LINENOISE
-endif
-ifeq ($(USE_SYSTEM_LZF),no)
-	SRCS+=lzf_c.c lzf_d.c
-else
-	LIBS+=-llzf
-	CFLAGS+=-DUSE_SYSTEM_LZF
 endif
 ifeq ($(USE_SYSTEM_DIVSUFSORT),no)
 	SRCS+=divsufsort.c sssort.c trsort.c utils.c
@@ -79,11 +73,13 @@ $(IVIO): $(OBJS)
 	$(CC) $(CFLAGS) $(GCCFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
 compress_wiki: compress_wiki.c
-	$(CC) compress_wiki.c lzf_c.c lzf_d.c -o $@
+	$(CC) -DFSE_MAX_MEMORY_USAGE=20 -DFSE_TABLELOG_ABSOLUTE_MAX=20 compress_wiki.c fse.c lzf_c.c -o $@
+	#$(CC) compress_wiki.c fse.c lzf_c.c -o $@
 
 webrepl: $(WEBREPL_SRCS) compress_wiki
 	cd webrepl && \
-	npm install && browserify -t [ babelify --presets [ react es2015 ] ] main.js -o bundle.js && \
+	npm install && browserify -t [ babelify --presets [ react es2015 ] ] main.js -o bundle.big.js && \
+	uglifyjs --compress --unsafe -o bundle.js -- bundle.big.js && \
 	cd .. && \
 	xxd -i webrepl/index.html webrepl_html.i && \
 	xxd -i webrepl/bundle.js webrepl_js.i && \
