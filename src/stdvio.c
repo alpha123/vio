@@ -15,11 +15,15 @@ vio_err_t vio_drop(vio_ctx *ctx) {
 }
 
 static const char *vio_builtins[] = {
-    /*"=: cmp [ 0: .t ; _: .f ]",
+    /*
+    "not: .t: .f ; .f: .t",
+
+    "=: cmp [ 0: .t ; _: .f ] eval",
     "<: cmp [ = not ] [ &abs bi@ = not ] bi and",
     "<=: &= &< bi or",
     ">: <= not",
-    ">=: < not",*/
+    ">=: < not",
+    */
 
 #define DEF_BUILTINS(w,d) w ": " d,
     VIO_LIST_BUILTINS(DEF_BUILTINS)
@@ -39,6 +43,10 @@ void vio_load_stdlib(vio_ctx *ctx) {
 
     vio_register(ctx, "fold", vio_fold, -3);
     vio_register(ctx, "partition", vio_partition, -2);
+    vio_register(ctx, "mask", vio_mask, -2);
+    vio_register(ctx, "elem?", vio_elemof, -2);
+
+    vio_register(ctx, "vcat", vio_vector_cat, -2);
 
     vio_register(ctx, "edit-dist", vio_edit_dist, 2);
     vio_register(ctx, "str-sim", vio_approx_edit_dist, 2);

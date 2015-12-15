@@ -73,8 +73,8 @@ $(IVIO): $(OBJS)
 	$(CC) $(CFLAGS) $(GCCFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
 compress_wiki: compress_wiki.c
-	$(CC) -DFSE_MAX_MEMORY_USAGE=20 -DFSE_TABLELOG_ABSOLUTE_MAX=20 compress_wiki.c \
-            divsufsort.c sssort.c trsort.c fse.c lzf_c.c -o $@
+	$(CC) -g -Wall -pedantic -Wextra -DFSE_MAX_MEMORY_USAGE=24 -DFSE_TABLELOG_ABSOLUTE_MAX=22 compress_wiki.c \
+            divsufsort.c sssort.c trsort.c fse.c mtf.c lzf_c.c -o $@
 
 webrepl: $(WEBREPL_SRCS) compress_wiki
 	cd webrepl && \

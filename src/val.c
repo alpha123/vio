@@ -21,6 +21,37 @@ const char *vio_val_type_name(vio_val_t what) {
 #undef NAME
 }
 
+VIO_CONST
+int vio_true_val(vio_val *v) {
+    return !vio_false_val(v);
+}
+
+VIO_CONST
+int vio_false_val(vio_val *v) {
+    switch (v->what) {
+    case vv_int:
+        return v->i32 == 0;
+    case vv_float:
+        return v->f32 == 0.0;
+    case vv_num:
+        return mpf_sgn(v->n) == 0;
+    case vv_tagword:
+        switch (v->len) {
+        case 1: return v->s[0] == 'f';
+        case 4: return strncmp(v->s, "none", 4) == 0;
+        default: return 0;
+        }
+    case vv_vec:
+        for (uint32_t i = 0; i < v->vlen; ++i) {
+            if (vio_true_val(v->vv[i]))
+                return 0;
+        }
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 vio_err_t vio_val_new(vio_ctx *ctx, vio_val **out, vio_val_t type) {
     vio_val *v = (vio_val *)malloc(sizeof(vio_val));
     if (v == NULL)

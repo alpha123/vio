@@ -164,3 +164,73 @@ vio_err_t vio_partition(vio_ctx *ctx) {
     error:
     return err;
 }
+
+vio_err_t vio_mask_val(vio_ctx *ctx, vio_val *v, vio_val *w, vio_val **out) {
+    vio_err_t err = 0;
+    uint32_t j = 0, m;
+    VIO__RAISEIF(v->what != vv_vec || w->what != vv_vec, VE_WRONG_TYPE,
+                 "Mask expects two vectors, not '%s' and '%s'.",
+                 vio_val_type_name(v->what), vio_val_type_name(w->what));
+
+    VIO__CHECK(vio_vec(ctx, out, v->vlen, NULL));
+    m = v->vlen > w->vlen ? w->vlen : v->vlen;
+    for (uint32_t i = 0; i < m; ++i) {
+        if (vio_true_val(w->vv[i]))
+            (*out)->vv[j++] = v->vv[i];
+    }
+    (*out)->vlen = j;
+
+    return 0;
+    error:
+    return err;
+}
+
+vio_err_t vio_mask(vio_ctx *ctx) {
+    vio_err_t err = 0;
+    vio_val *v, *w, *out;
+    VIO__RAISEIF(ctx->sp < 2, VE_STACK_EMPTY,
+                 "Mask needs two vectors, but the stack doesn't have enough values.");
+    w = ctx->stack[--ctx->sp];
+    v = ctx->stack[--ctx->sp];
+    VIO__CHECK(vio_mask_val(ctx, v, w, &out));
+    ctx->stack[ctx->sp++] = out;
+    return 0;
+    error:
+    return err;
+}
+
+vio_err_t vio_elemof_val(vio_ctx *ctx, vio_val *v, vio_val *vs, int *out) {
+    return 0;
+}
+
+vio_err_t vio_elemof(vio_ctx *ctx) {
+    return 0;
+}
+
+vio_err_t vio_vector_cat_val(vio_ctx *ctx, vio_val *v, vio_val *w, vio_val **out) {
+    vio_err_t err = 0;
+    VIO__RAISEIF(v->what != vv_vec || w->what != vv_vec, VE_WRONG_TYPE,
+                 "Vector-cat expects two vectors, not '%s' and '%s'.",
+                 vio_val_type_name(v->what), vio_val_type_name(w->what));
+    VIO__CHECK(vio_vec(ctx, out, v->vlen + w->vlen, NULL));
+    memcpy((*out)->vv, v->vv, v->vlen * sizeof(vio_val *));
+    memcpy((*out)->vv + v->vlen, w->vv, w->vlen * sizeof(vio_val *));
+
+    return 0;
+    error:
+    return err;
+}
+
+vio_err_t vio_vector_cat(vio_ctx *ctx) {
+    vio_err_t err = 0;
+    vio_val *v, *w, *out;
+    VIO__RAISEIF(ctx->sp < 2, VE_STACK_EMPTY,
+                 "Vector-cat needs two vectors, but the stack doesn't have enough values.");
+    w = ctx->stack[--ctx->sp];
+    v = ctx->stack[--ctx->sp];
+    VIO__CHECK(vio_vector_cat_val(ctx, v, w, &out));
+    ctx->stack[ctx->sp++] = out;
+    return 0;
+    error:
+    return err;
+}

@@ -51,7 +51,7 @@
 *  Maximum symbol value authorized.
 *  Required for proper stack allocation */
 #ifndef FSE_MAX_SYMBOL_VALUE
-#define FSE_MAX_SYMBOL_VALUE 255
+#define FSE_MAX_SYMBOL_VALUE 65535
 #endif
 
 

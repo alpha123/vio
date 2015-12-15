@@ -81,6 +81,11 @@ vio_err_t vio_vec(vio_ctx *ctx, vio_val **out, uint32_t vlen, ...);
 vio_err_t vio_string(vio_ctx *ctx, vio_val **out, uint32_t len, const char *str);
 vio_err_t vio_string0(vio_ctx *ctx, vio_val **out, const char *str);
 
+VIO_CONST
+int vio_true_val(vio_val *v);
+VIO_CONST
+int vio_false_val(vio_val *v);
+
 /* Index an item in a matrix. Uses row-major order by default, but that could
    change in the future. */
 VIO_CONST

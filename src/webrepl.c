@@ -20,46 +20,14 @@ struct ctx_info {
     vio_ctx *ctx;
 };
 
-int vio_webrepl_serve(struct mg_connection *conn, void *_cbdata) {
-    struct ctx_info *ci = (struct ctx_info *)malloc(sizeof(struct ctx_info));
-    /* strip leading / */
-    const char *image_file = mg_get_request_info(conn)->local_uri + 1;
-
-    ci->image_file = (char *)malloc(strlen(image_file));
-    strcpy(ci->image_file, image_file);
-
-    ci->ctx = (vio_ctx *)malloc(sizeof(vio_ctx));
-
-    if (vio_open_image(ci->ctx, image_file) == VE_IO_FAIL)
-        vio_open(ci->ctx);
-    vio_load_stdlib(ci->ctx);
-
-    mg_set_user_connection_data(conn, ci);
-
-    mg_printf(conn,
-              "HTTP/1.1 200 OK\r\n"
-              "Content-length: %d\r\n"
-              "Content-type: text/html\r\n\r\n",
-              webrepl_index_html_len);
-    mg_write(conn, webrepl_index_html, webrepl_index_html_len);
-
-    return 1;
-}
-
-int vio_webrepl_serve_js(struct mg_connection *conn, void *_cbdata) {
-    mg_printf(conn,
-              "HTTP/1.1 200 OK\r\n"
-              "Content-length: %d\r\n"
-              "Content-type: application/javascriptr\n\r\n",
-              webrepl_bundle_js_len);
-    mg_write(conn, webrepl_bundle_js, webrepl_bundle_js_len);
-    return 1;
-}
-
-int vio_webrepl_serve_wiki(struct mg_connection *conn, void *_cbdata) {
+static
+int serve_wiki(struct mg_connection *conn, const char *wikifile) {
     FILE *f;
-    if ((f = fopen(mg_get_request_info(conn)->local_uri + 1, "r")))
-        mg_send_file(conn, mg_get_request_info(conn)->local_uri + 1);
+    if ((f = fopen(wikifile, "r"))) {
+        mg_send_file(conn, wikifile);
+        fclose(f);
+        return 1;
+    }
     else {
         uint32_t in_len = webrepl_wiki_html_lzf_len, out_len = webrepl_wiki_html_len;
         uint8_t *out = malloc(out_len), *in = webrepl_wiki_html_lzf;
@@ -83,8 +51,52 @@ int vio_webrepl_serve_wiki(struct mg_connection *conn, void *_cbdata) {
                   out_len);
         mg_write(conn, out, out_len);
         free(out);
+        return 0;
     }
+}
 
+int vio_webrepl_serve(struct mg_connection *conn, void *_cbdata) {
+    struct ctx_info *ci = (struct ctx_info *)malloc(sizeof(struct ctx_info));
+    /* strip leading / */
+    const char *image_file = mg_get_request_info(conn)->local_uri + 1;
+    char *wiki_file = alloca(strlen(image_file) + 6);
+    strcpy(wiki_file, image_file);
+    strcat(wiki_file, ".html");
+
+    ci->image_file = (char *)malloc(strlen(image_file));
+    strcpy(ci->image_file, image_file);
+
+    ci->ctx = (vio_ctx *)malloc(sizeof(vio_ctx));
+
+    if (vio_open_image(ci->ctx, image_file) == VE_IO_FAIL)
+        vio_open(ci->ctx);
+    vio_load_stdlib(ci->ctx);
+
+    mg_set_user_connection_data(conn, ci);
+
+    serve_wiki(conn, wiki_file);
+    /*mg_printf(conn,
+              "HTTP/1.1 200 OK\r\n"
+              "Content-length: %d\r\n"
+              "Content-type: text/html\r\n\r\n",
+              webrepl_index_html_len);
+    mg_write(conn, webrepl_index_html, webrepl_index_html_len);*/
+
+    return 1;
+}
+
+int vio_webrepl_serve_js(struct mg_connection *conn, void *_cbdata) {
+    mg_printf(conn,
+              "HTTP/1.1 200 OK\r\n"
+              "Content-length: %d\r\n"
+              "Content-type: application/javascript\r\n\r\n",
+              webrepl_bundle_js_len);
+    mg_write(conn, webrepl_bundle_js, webrepl_bundle_js_len);
+    return 1;
+}
+
+int vio_webrepl_serve_wiki(struct mg_connection *conn, void *_cbdata) {
+    serve_wiki(conn, mg_get_request_info(conn)->local_uri + 1);
     return 1;
 }
 
@@ -94,9 +106,10 @@ int vio_webrepl_save_wiki(struct mg_connection *conn, void *_cbdata) {
         uint32_t total = 0;
         int r, off, i = 0, nlcnt = 0;
         const char *uri = mg_get_request_info(conn)->local_uri;
-        char *path = alloca(strlen(uri) - 7);
+        char *path = alloca(strlen(uri) - 3);
         strncpy(path, uri + 1, strlen(uri) - 8);
         path[strlen(uri) - 8] = '\0';
+        strcat(path, ".html");
         FILE *f = fopen(path, "w");
         while ((r = mg_read(conn, buf, 2047)) > 0) {
             off = 0;
@@ -148,7 +161,7 @@ int vio_webrepl_wsdata(struct mg_connection *conn, int bits, char *data,
     else {
         const char *s = vio_json_stack(ci->ctx);
         mg_websocket_write(conn, WEBSOCKET_OPCODE_TEXT, s, strlen(s));
-        free((char *)s); /* this however is not */
+        free((char *)s);
     }
     return 1;
 }

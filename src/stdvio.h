@@ -13,6 +13,9 @@
 \
     X("dip2", "swap ^dip") \
     X("dup2", "over over") \
+\
+    X("filter", "partition swap mask { } \\vcat") \
+\
     X("keep2", "^dup2 dip2") \
 \
     X("over", "^dup swap") \

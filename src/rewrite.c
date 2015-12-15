@@ -151,8 +151,10 @@ vio_err_t rewrite_short_comma_combinator(vio_tok **begin) {
      - &word -> [word]
      - ^word -> [word] dip
      - $word -> [word] keep
-     - \word -> [word] fold
-     - ~/word -> [word] partition */
+     - $/word -> [word] preserve
+     - ~word -> [word] filter
+     - ~/word -> [word] partition
+     - \word -> [word] fold */
 vio_err_t rewrite_shortconj(vio_tok **begin) {
     vio_err_t err = 0;
     char conj[VIO_MAX_CONJ+1], *word;
