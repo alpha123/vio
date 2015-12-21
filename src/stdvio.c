@@ -15,27 +15,20 @@ vio_err_t vio_drop(vio_ctx *ctx) {
 }
 
 static const char *vio_builtins[] = {
-    /*"=: cmp [ 0: .t ; _: .f ]",
+    /*
+    "not: .t: .f ; .f: .t",
+
+    "=: cmp [ 0: .t ; _: .f ] eval",
     "<: cmp [ = not ] [ &abs bi@ = not ] bi and",
     "<=: &= &< bi or",
     ">: <= not",
-    ">=: < not",*/
+    ">=: < not",
+    */
+
+#define DEF_BUILTINS(w,d) w ": " d,
+    VIO_LIST_BUILTINS(DEF_BUILTINS)
+#undef DEF_BUILTINS
     
-    "bi: ^keep eval",
-    "bi*: ^dip eval",
-    "bi@: dup bi*",
-    "bi2: ^keep2 eval",
-    "bi2*: ^dip2 eval",
-    "bi2@: dup bi2*",
-
-    "dip2: swap ^dip",
-    "dup2: over over",
-    "keep2: ^dup2 dip2",
-
-    "over: ^dup swap",
-
-    "preserve: keep swap",
-    "preserve2: keep2 rot rot",
     0
 };
 
@@ -50,6 +43,10 @@ void vio_load_stdlib(vio_ctx *ctx) {
 
     vio_register(ctx, "fold", vio_fold, -3);
     vio_register(ctx, "partition", vio_partition, -2);
+    vio_register(ctx, "mask", vio_mask, -2);
+    vio_register(ctx, "elem?", vio_elemof, -2);
+
+    vio_register(ctx, "vcat", vio_vector_cat, -2);
 
     vio_register(ctx, "edit-dist", vio_edit_dist, 2);
     vio_register(ctx, "str-sim", vio_approx_edit_dist, 2);
@@ -64,4 +61,20 @@ void vio_load_stdlib(vio_ctx *ctx) {
             exit(1);
         }
     }
+}
+
+int vio_is_builtin(uint32_t nlen, const char *name) {
+#define IS_BUILTIN(w,_d) if (strlen(w) == nlen && strncmp(w,name,nlen) == 0) return 1;
+    VIO_LIST_BUILTINS(IS_BUILTIN)
+#undef IS_BUILTIN
+    return 0;
+}
+
+VIO_CONST
+uint32_t vio_builtin_count(void) {
+    uint32_t cnt = 0;
+#define COUNT_BUILTINS(_w,_d) ++cnt;
+    VIO_LIST_BUILTINS(COUNT_BUILTINS)
+#undef COUNT_BUILTINS
+    return cnt;
 }

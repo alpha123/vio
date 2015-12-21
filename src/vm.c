@@ -76,7 +76,7 @@ vio_err_t vio_call_cfunc(vio_ctx *ctx, uint32_t nlen, const char *name) {
     vio_function_info *fi;
     vio_val *a, *b, *vout, *w;
 
-    fi = (vio_function_info *)art_search(ctx->cdict, (const unsigned char *)name, nlen);
+    fi = vio_cdict_lookup(ctx->cdict, name, nlen);
     VIO__RAISEIF(fi == NULL, VE_CALL_TO_UNDEFINED_WORD, "If you're seeing this, something very strange happened.");
     /* Auto-vectorize functions of arity 1 and 2 */
     if (fi->arity == 1) {
@@ -347,17 +347,16 @@ op_pcmatchstr:
     NEXT_MAYBEGC;
 op_pcloadrule:
     v = EC(consts)[IMM1];
-    if (v->p == NULL) {
-        if (art_search(ctx->cdict, (const unsigned char *)v->s, v->len))
-            CHECK(vio_call_cfunc(ctx, v->len, v->s));
-        else {
-            if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
-                EXIT(vio_raise_undefined_rule(ctx, v));
-            CHECK(vio_exec(ctx, ctx->defs[idx]));
-        }
-        CHECK(vio_pc_loadrule(ctx, v));
+    if (vio_cdict_lookup(ctx->cdict, v->s, v->len))
+        CHECK(vio_call_cfunc(ctx, v->len, v->s));
+    else {
+        if (!vio_dict_lookup(ctx->dict, v->s, v->len, &idx))
+            EXIT(vio_raise_undefined_rule(ctx, v));
+        CHECK(vio_exec(ctx, ctx->defs[idx]));
     }
-    safe_push_clone(ctx, v);
+    CHECK(vio_pc_loadrule(ctx, v));
+    /* safe_push_clone(ctx, v); */
+    SAFE_PUSH(v)
     NEXT_MAYBEGC;
 op_nop:
     NEXT;

@@ -35,11 +35,11 @@ struct _vctx {
     char err_msg[VIO_MAX_ERR_LEN];
 };
 
-typedef struct _vfninfo {
+struct _vfninfo {
     vio_function fn;
     int arity;
     uint32_t ret_cnt;
-} vio_function_info;
+};
 
 vio_err_t vio_open(vio_ctx *ctx);
 void vio_close(vio_ctx *ctx);

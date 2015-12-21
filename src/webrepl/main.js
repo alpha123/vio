@@ -7,7 +7,7 @@ const React = require('react')
 /* note: comments that look like // / are there to fix
    kak's syntax highlighting (which breaks on JSX) */
 
-const ws = new WebSocket('ws://127.0.0.1:' + location.port + '/webrepl/socket')
+const ws = new WebSocket('ws://' + location.host + '/webrepl/socket')
     , term = $('#terminal').jqconsole('Hello from Vio!\n', 'vio> ')
 
 function prompt() {

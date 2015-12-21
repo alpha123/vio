@@ -5,6 +5,8 @@
 
 int vio_webrepl_serve(struct mg_connection *conn, void *_cbdata);
 int vio_webrepl_serve_js(struct mg_connection *conn, void *_cbdata);
+int vio_webrepl_serve_wiki(struct mg_connection *conn, void *_cbdata);
+int vio_webrepl_save_wiki(struct mg_connection *conn, void *_cbdata);
 int vio_webrepl_wsstart(struct mg_connection *conn, void *_cbdata);
 int vio_webrepl_wsconnect(const struct mg_connection *conn, void *_cbdata);
 void vio_webrepl_wsready(struct mg_connection *conn, void *_cbdata);

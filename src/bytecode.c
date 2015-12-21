@@ -239,8 +239,7 @@ vio_err_t emit(vio_ctx *ctx, vio_tok **begin, vio_bytecode *bc, vio_opcode final
                         }
                         imm2 = 2;
                     }
-                    if (art_search(ctx->cdict, (const unsigned char *)t->s,
-                                   t->len) && imm2 != 1)
+                    if (vio_cdict_lookup(ctx->cdict, t->s, t->len) && imm2 != 1)
                         EMIT_OPCODE(vop_callc);
                     else
                         EMIT_OPCODE(vop_call);

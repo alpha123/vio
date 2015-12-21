@@ -6,9 +6,9 @@
 void vio_load_stdrules(vio_ctx *ctx) {
     vio_register(ctx, ",", vio_pc_then, 2);
     vio_register(ctx, ",|", vio_pc_or, 2);
-    vio_register(ctx, ",?", vio_pc_maybe, 2);
-    vio_register(ctx, ",+", vio_pc_more, 2);
-    vio_register(ctx, ",*", vio_pc_many, 2);
+    vio_register(ctx, ",?", vio_pc_maybe, 1);
+    vio_register(ctx, ",+", vio_pc_more, 1);
+    vio_register(ctx, ",*", vio_pc_many, 1);
     
     vio_register(ctx, "d", vio_rule_digit, 0);
     vio_register(ctx, "s", vio_rule_space, 0);

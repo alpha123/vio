@@ -35,9 +35,12 @@ void vio_server_start(int port) {
 
     memset(&cb, 0, sizeof(struct mg_callbacks));
     memset(st.replclients, 0, sizeof(struct mg_connection *) * VIO_MAX_WS_CLIENTS);
+
     serv = mg_start(&cb, &st, options);
+
     mg_set_request_handler(serv, "**.vio$", vio_webrepl_serve, 0);
     mg_set_request_handler(serv, "^/webrepl/bundle.js$", vio_webrepl_serve_js, 0);
+    mg_set_request_handler(serv, "**.vio/upload$", vio_webrepl_save_wiki, 0);
     mg_set_request_handler(serv, "/webrepl/socket", vio_webrepl_wsstart, 0);
     mg_set_websocket_handler(serv, "/webrepl/socket",
                              vio_webrepl_wsconnect,
