@@ -19,7 +19,7 @@ char *vio_uneval_val(vio_val *v);
 
    @ctx Look at the value on top of this context. Does not pop it.
 
-   This functions is meant more for debugging or printing
+   This function is meant more for debugging or printing
    than metaprogramming.
    In theory it should vio_eval() to the correct value,
    but that is not guaranteed.

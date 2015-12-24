@@ -37,6 +37,8 @@ typedef struct _vtok {
     struct _vtok *next;
 } vio_tok;
 
+vio_err_t vio_tok_clone(vio_tok *t, vio_tok **out);
+
 void vio_tok_free(vio_tok *t);
 void vio_tok_free_all(vio_tok *t);
 
@@ -62,5 +64,8 @@ void vio_tokenizer_init(vio_tokenizer *st);
 
 vio_err_t vio_tokenize(vio_tokenizer *st);
 vio_err_t vio_tokenize_str(vio_tok **t, const char *s, uint32_t len);
+
+/* Transform a token sequence into a null-terminated string. */
+char *vio_untokenize(vio_tok *t);
 
 #endif

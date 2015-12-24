@@ -242,9 +242,9 @@ vio_err_t rewrite_shortconj(vio_tok **begin) {
 
     return 0;
     error:
-    if (qs) free(qs);
-    if (qe) free(qe);
-    if (apply) free(apply);
+    if (qs) vio_tok_free(qs);
+    if (qe) vio_tok_free(qe);
+    if (apply) vio_tok_free(apply);
     return err;
 }
 
@@ -294,10 +294,13 @@ vio_err_t rewrite_tag_vec(vio_tok **begin) {
 }
 
 vio_err_t vio_rewrite(vio_tok **t) {
-    return
-        rewrite_short_comma_combinator(t) ||
-        rewrite_matchstr(t) ||
-        rewrite_shortconj(t) ||
-        rewrite_tag_vec(t) ||
-        rewrite_vec(t);
+    vio_err_t err = 0;
+    VIO__CHECK(rewrite_short_comma_combinator(t));
+    VIO__CHECK(rewrite_matchstr(t));
+    VIO__CHECK(rewrite_shortconj(t));
+    VIO__CHECK(rewrite_tag_vec(t));
+    VIO__CHECK(rewrite_vec(t));
+    return 0;
+    error:
+    return err;
 }

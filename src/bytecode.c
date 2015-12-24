@@ -45,6 +45,7 @@ vio_err_t vio_bytecode_alloc(vio_bytecode **out) {
     bc->csz = DEFAULT_CONST_BUFSIZE;
     bc->ip = bc->ic = 0;
     bc->prog = bc->consts = NULL;
+    bc->tok = NULL;
     *out = bc;
     return 0;
 }
@@ -65,6 +66,7 @@ vio_err_t emit_definition(vio_ctx *ctx, const char *name, uint32_t nlen, vio_tok
     vio_bytecode *fn;
 
     VIO__CHECK(vio_bytecode_alloc(&fn));
+    VIO__CHECK(vio_tok_clone(*def_start, &fn->tok));
     VIO__CHECK(emit(ctx, def_start, fn, vop_ret, end_defend));
     vio_dict_store(ctx->dict, name, nlen, ctx->defp);
     VIO__ERRIF(ctx->defp == VIO_MAX_FUNCTIONS, VE_TOO_MANY_WORDS);
@@ -295,6 +297,8 @@ void vio_bytecode_free(vio_bytecode *bc) {
     /* Don't free the values of bc->consts here, since they are allocated
        normally with vio_val_new and thus get marked and swept. */
     free(bc->consts);
+    if (bc->tok)
+        vio_tok_free_all(bc->tok);
     free(bc);
 }
 
@@ -310,6 +314,8 @@ vio_err_t vio_bytecode_clone(vio_ctx *ctx, vio_bytecode *bc, vio_bytecode **out)
     VIO__CHECK(vio_bytecode_alloc_consts(*out));
     for (uint32_t i = 0; i < bc->ic; ++i)
         VIO__CHECK(vio_val_clone(ctx, bc->consts[i], (*out)->consts + i));
+    if (bc->tok)
+        VIO__CHECK(vio_tok_clone(bc->tok, &(*out)->tok));
 
     return 0;
     error:

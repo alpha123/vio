@@ -80,6 +80,29 @@ void vio_tokenizer_init(vio_tokenizer *st) {
     st->err = 0;
 }
 
+vio_err_t vio_tok_clone(vio_tok *t, vio_tok **out) {
+    vio_err_t err = 0;
+    vio_tok *newt = NULL;
+    VIO__ERRIF((newt = (vio_tok *)malloc(sizeof(vio_tok))) == NULL, VE_ALLOC_FAIL);
+    newt->what = t->what;
+    newt->line = t->line;
+    newt->pos = t->pos;
+    VIO__ERRIF((newt->s = (char *)malloc(t->len)) == NULL, VE_ALLOC_FAIL);
+    memcpy(newt->s, t->s, t->len);
+    newt->len = t->len;
+    if (t->next)
+        VIO__CHECK(vio_tok_clone(t->next, &newt->next));
+
+    *out = newt;
+    return 0;
+
+    error:
+    if (newt) free(newt);
+    if (newt && newt->s) free(newt->s);
+    *out = NULL;
+    return err;
+}
+
 void vio_tok_free(vio_tok *t) {
     if (t->s != NULL) {
         free(t->s);
@@ -367,7 +390,7 @@ READER(adverb)
         ret = fail;
     }
     else {
-    	vio_tok_new(vt_adverb, s, s->s + s->i - 1, 1);
+    	s->err = vio_tok_new(vt_adverb, s, s->s + s->i - 1, 1);
     	ret = read;
     }
 END_READER(adverb)
@@ -378,7 +401,31 @@ READER(conj)
         ret = fail;
     }
     else {
-    	vio_tok_new(vt_conj, s, s->s + s->i - 1, 1);
+    	s->err = vio_tok_new(vt_conj, s, s->s + s->i - 1, 1);
     	ret = read;
     }
 END_READER(conj)
+
+char *vio_untokenize(vio_tok *t) {
+    uint32_t total_len = 0;
+    char *s;
+    vio_tok *tk = t;
+    while (tk) {
+        total_len += tk->len + 1;
+        tk = tk->next;
+    }
+
+    if ((s = malloc(total_len)) == NULL)
+        return NULL;
+    s[0] = '\0';
+
+    tk = t;
+    while (tk) {
+        strncat(s, tk->s, tk->len);
+        if (tk->next)
+            strcat(s, " ");
+        tk = tk->next;
+    }
+
+    return s;
+}

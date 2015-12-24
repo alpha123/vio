@@ -13,6 +13,8 @@ struct _vbytecode {
 
     size_t psz, csz;
     uint32_t ip, ic;
+
+    vio_tok *tok; /* store the tokens we're compiled from so that we can decompile more easily */
 };
 
 vio_err_t vio_emit(vio_ctx *ctx, vio_tok *t, vio_bytecode **out);
