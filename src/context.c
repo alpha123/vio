@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include "strings.h"
@@ -63,74 +64,63 @@ vio_err_t vio_raise(vio_ctx *ctx, vio_err_t err, const char *msg, ...) {
     return err;
 }
 
-struct word_suggest {
+struct word_suggestions {
     uint32_t len;
     const char *s;
-    struct word_suggest *next;
-};
-
-struct word_iter {
-    uint32_t len;
-    const char *s;
-    struct word_suggest *ss;
+    uint32_t total_ss_len;
+    uint8_t ss_count;
+    const char *ss[VIO_MAX_SUGGESTED_WORDS];
+    uint32_t slen[VIO_MAX_SUGGESTED_WORDS];
 };
 
 int find_similar(void *data, const unsigned char *key, uint32_t klen, void *_value) {
-    struct word_iter *wi = (struct word_iter *)data;
-    uint32_t maxdiff = wi->len / 3 || 1;
-    if (vio_sift4_dist(wi->len, wi->s, klen, (const char *)key, 10, -1) <= maxdiff) {
-        struct word_suggest *ws = wi->ss;
-        wi->ss = (struct word_suggest *)malloc(sizeof(struct word_suggest));
-        wi->ss->next = ws;
-        wi->ss->len = klen;
-        wi->ss->s = (const char *)key;
+    struct word_suggestions *ws = (struct word_suggestions *)data;
+    uint32_t maxdiff = ws->len < 3 ? 1 : ws->len / 3;
+    if (vio_sift4_dist(ws->len, ws->s, klen, (const char *)key, 10, -1) <= maxdiff) {
+        ws->total_ss_len += klen;
+        ws->slen[ws->ss_count] = klen;
+        ws->ss[ws->ss_count++] = (const char *)key;
     }
-    return 0;
+    return ws->ss_count >= VIO_MAX_SUGGESTED_WORDS;
 }
 
-struct word_suggest *similar_words(vio_ctx *ctx, uint32_t len, const char *to) {
-    struct word_iter wi;
-    wi.len = len;
-    wi.s = to;
-    wi.ss = NULL;
-    art_iter(&ctx->dict->words, find_similar, &wi);
-    art_iter(ctx->cdict, find_similar, &wi);
-    return wi.ss;
+struct word_suggestions *similar_words(vio_ctx *ctx, uint32_t len, const char *to) {
+    struct word_suggestions *ws = (struct word_suggestions *)malloc(sizeof(struct word_suggestions));
+    ws->len = len;
+    ws->s = to;
+    ws->total_ss_len = 0;
+    ws->ss_count = 0;
+    art_iter(&ctx->dict->words, find_similar, ws);
+    art_iter(ctx->cdict, find_similar, ws);
+    return ws;
 }
 
 char *similar_words_str(vio_ctx *ctx, uint32_t len, const char *to) {
-    struct word_suggest *ss = similar_words(ctx, len, to), *ws, *ts;
+    struct word_suggestions *ws = similar_words(ctx, len, to);
     char *out;
-    uint32_t olen = 0, i = 0;
+    uint32_t olen = 0, i = 0, j = 0;
 
-    if (ss == NULL) {
+    if (ws->ss_count == 0) {
         out = malloc(1);
         olen = 1;
     }
     else {
-        ws = ss;
-        while (ws) {
-            olen += ws->len + 3;
-            ws = ws->next;
-        }
+        olen = ws->total_ss_len + ws->ss_count * 3;
 
         out = (char *)malloc(olen + 1);
-        ws = ss;
-        while (ws) {
+        for (; j < ws->ss_count; ++j) {
             strcpy(out + i, "- ");
             i += 2;
-            strncpy(out + i, ws->s, ws->len);
-            i += ws->len;
-            if (ws->next) {
+            strncpy(out + i, ws->ss[j], ws->slen[j]);
+            i += ws->slen[j];
+            if (j < ws->ss_count - 1) {
                 strcpy(out + i, "\n");
                 i += 1;
             }
-            ts = ws->next;
-            free(ws);
-            ws = ts;
         }
     }
     out[olen - 1] = '\0';
+    free(ws);
 
     return out;
 }

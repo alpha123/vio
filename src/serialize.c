@@ -391,9 +391,9 @@ int save_def(void *data, const unsigned char *key, uint32_t klen, void *val) {
     uint32_t def_idx = (uint32_t)val - 1;
     tpl_node *tn;
     vio_bytecode *bc = ctx->defs[def_idx];
+    char *as_code = vio_untokenize(bc->tok);
     SAVE("u", &klen);
-    SAVE("c#u", (char *)key, klen, &def_idx);
-    VIO__CHECK(vio_dump_bytecode(bc, sd->fp));
+    SAVE("c#s", (char *)key, klen, &as_code);
     return 0;
 
     error:
@@ -421,9 +421,8 @@ vio_err_t load_def(vio_ctx *ctx, FILE *fp) {
     char *name = NULL;
     uint32_t nlen, def_idx;
     LOAD("u", &nlen);
-    name = (char *)malloc(nlen);
-    VIO__ERRIF(name == NULL, VE_ALLOC_FAIL);
-    LOAD("c#u", name, nlen, &def_idx);
+    VIO__ERRIF((name = (char *)malloc(nlen)) == NULL, VE_ALLOC_FAIL);
+    LOAD("c#s", name, nlen, &def_idx);
     vio_dict_store(ctx->dict, name, nlen, def_idx);
     vio_load_bytecode(ctx, ctx->defs + def_idx, fp);
     free(name);

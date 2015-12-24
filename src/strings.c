@@ -45,8 +45,8 @@ uint32_t vio_sift4_dist(uint32_t alen, const char *a, uint32_t blen, const char 
                     break;
                 }
                 if (ia > ob && ib > oa) {
-                    memmove(off_a + i, off_a + i + 1, 1);
-                    memmove(off_b + i, off_b + i + 1, 1);
+                    memmove(off_a + i, off_a + i + 1, 4);
+                    memmove(off_b + i, off_b + i + 1, 4);
                     memmove(off_test + i, off_test + i + 1, 1);
                     --olen;
                 }
@@ -54,8 +54,8 @@ uint32_t vio_sift4_dist(uint32_t alen, const char *a, uint32_t blen, const char 
                     ++i;
             }
             if (olen == maxoff) {
-                memmove(off_a, off_a + VIO_SIFT4_OFF_SHIFT, VIO_SIFT4_OFF_SHIFT);
-                memmove(off_b, off_b + VIO_SIFT4_OFF_SHIFT, VIO_SIFT4_OFF_SHIFT);
+                memmove(off_a, off_a + VIO_SIFT4_OFF_SHIFT, VIO_SIFT4_OFF_SHIFT*4);
+                memmove(off_b, off_b + VIO_SIFT4_OFF_SHIFT, VIO_SIFT4_OFF_SHIFT*4);
                 memmove(off_test, off_test + VIO_SIFT4_OFF_SHIFT, VIO_SIFT4_OFF_SHIFT);
                 olen -= VIO_SIFT4_OFF_SHIFT;
             }

@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "art.h"
 #include "math.h"
 #include "parsercombinators.h"
