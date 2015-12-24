@@ -14,6 +14,7 @@
 #include "val.h"
 
 #define VIO_MAX_ERR_LEN 255
+#define VIO_MAX_SUGGESTED_WORDS 10
 #define VIO_STACK_SIZE 2048
 #define VIO_MAX_FUNCTIONS (32*1024)
 
