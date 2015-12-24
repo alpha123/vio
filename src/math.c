@@ -1,6 +1,10 @@
 #include <math.h>
 #include <gmp.h>
+#if BLAS_IMPL == openblas
 #include <blas/cblas.h>
+#else
+#include <cblas.h>
+#endif
 #include "attrib.h"
 #include "math.h"
 
